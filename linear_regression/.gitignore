@@ -1,0 +1,4 @@
+data/model.json
+data/model.png
+*.lock
+target*

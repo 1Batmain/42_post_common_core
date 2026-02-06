@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "predict", "shared_lib",
+    "train",
+    "shared_lib",
+]
+resolver = "2"
