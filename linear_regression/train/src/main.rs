@@ -11,7 +11,7 @@ use shared_lib::{predict, normalize, Model};
 #[derive(Debug, Deserialize)]
 struct Field
 {
-    km: f64,
+    km: u64,
     price: f64,
 }
 
@@ -28,7 +28,7 @@ fn parse<P: AsRef<Path>>(path: P) -> Result<Vec<Field>, Box<dyn Error>>
 
 fn mean_km(data: &[Field]) -> f64
 {
-    let sum: f64 = data.iter().map(|field| field.km).sum();
+    let sum: f64 = data.iter().map(|field| field.km as f64).sum();
     let count = data.len() as f64;
     sum / count
 }
@@ -38,7 +38,7 @@ fn standard_deviation(mean: f64, data: &[Field]) -> f64
     let variance: f64 = data
         .iter()
         .map(|field| {
-            let diff = field.km - mean;
+            let diff = field.km as f64 - mean;
             diff * diff
         })
         .sum::<f64>()
@@ -80,8 +80,8 @@ fn draw(data: &[Field], model: &Model) -> Result<(), Box<dyn Error>>
     let root = BitMapBackend::new("data/model.png", (640, 480)).into_drawing_area();
     root.fill(&WHITE)?;
     
-    let min_km = data.iter().map(|f| f.km).fold(f64::INFINITY, |a, b| a.min(b));
-    let max_km = data.iter().map(|f| f.km).fold(f64::NEG_INFINITY, |a, b| a.max(b));
+    let min_km = data.iter().map(|f| f.km as f64).fold(f64::INFINITY, |a, b| a.min(b));
+    let max_km = data.iter().map(|f| f.km as f64).fold(f64::NEG_INFINITY, |a, b| a.max(b));
     let min_price = data.iter().map(|f| f.price).fold(f64::INFINITY, |a, b| a.min(b));
     let max_price = data.iter().map(|f| f.price).fold(f64::NEG_INFINITY, |a, b| a.max(b));
     
@@ -100,14 +100,14 @@ fn draw(data: &[Field], model: &Model) -> Result<(), Box<dyn Error>>
     chart.configure_mesh().draw()?;
 
     chart.draw_series(data.iter().map(|point| {
-        let x = point.km;
+        let x = point.km as f64;
         let y = point.price;
         Circle::new((x, y), 5, BLUE.filled())
     }))?;
 
     let line_points: Vec<(f64, f64)> = (0..=100).map(|i| {
         let x = km_min + (km_max - km_min) * (i as f64 / 100.0);
-        (x, predict(x, model))
+        (x, predict(x as u64, model))
     }).collect();
     
     chart.draw_series(LineSeries::new(line_points, &RED))?

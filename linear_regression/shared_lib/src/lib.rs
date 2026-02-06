@@ -10,12 +10,12 @@ pub struct Model
 }
 
 
-pub fn normalize(km: f64, model: &Model) -> f64
+pub fn normalize(km: u64, model: &Model) -> f64
 {
-    (km - model.mean) / model.standard_deviation
+    (km as f64 - model.mean) / model.standard_deviation
 }
 
-pub fn predict(km: f64, model: &Model) -> f64
+pub fn predict(km: u64, model: &Model) -> f64
 {
     let km = normalize(km, model);
     model.theta0 + km * model.theta1
