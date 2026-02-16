@@ -8,12 +8,26 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("This program take the mileage of the car to estimate price");
         std::process::exit(1);
     }
-    let mileage: u64 = args[1].parse()?;
+
+    let path = "data/model.json";
     
-    let serialized = std::fs::read_to_string("data/model.json")?;
-    let model: Model = serde_json::from_str(&serialized)?;
+    let serialized = match std::fs::read_to_string(path) {
+        Ok(content) => { println!("Getting weights from {path}"); content },
+        Err(e) => {eprintln!("Failed to read the file : {}", e); std::process::exit(1)},
+    };
+    let model: Model = match serde_json::from_str(&serialized) {
+        Ok(model) => {println!("Model weights sets !"); model },
+        Err(e) => {eprintln!("Failed to parse model weights, try to run the train program again : {}", e); std::process::exit(1) },
+    };
+
+
+    let mileage: u64 = match args[1].parse() {
+        Ok(mileage) => mileage,
+        Err(e) => { eprintln!("cant estimate price for \"{}\" because itsm", args[1]); std::process::exit(1) },
+    };
+
     let price = predict(mileage, &model) as u64;
     println!("The estimated price for {mileage} miles is {price} $");
-    
+
     Ok(())
 }

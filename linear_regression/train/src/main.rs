@@ -60,9 +60,9 @@ fn train(data: &[Field]) -> Model
     model
 }
 
-fn draw(data: &[Field], model: &Model) -> Result<(), Box<dyn Error>>
+fn draw(data: &[Field], model: &Model, path : &str) -> Result<(), Box<dyn Error>>
 {
-    let root = BitMapBackend::new("data/model.png", (640, 480)).into_drawing_area();
+    let root = BitMapBackend::new(path, (640, 480)).into_drawing_area();
     root.fill(&WHITE)?;
     
     let min_km = data.iter().map(|f| f.km as f64).fold(f64::INFINITY, |a, b| a.min(b));
@@ -113,10 +113,28 @@ fn draw(data: &[Field], model: &Model) -> Result<(), Box<dyn Error>>
 
 fn main() -> Result<(), Box<dyn Error>>
 {
-    let data = parse("data/data.csv")?;
+    let path = "data/data.csv";
+    let data = match parse(path){
+        Ok(data) => {println!("Getting data from {}", path); data},
+        Err(e) => {println!("Fail to get data from {}:{}", path, e); std::process::exit(1);}
+    };
+    
     let model = train(&data);
-    let serialize = serde_json::to_string(&model).unwrap();
-    std::fs::write("data/model.json", serialize).unwrap();
-    draw(&data, &model)?;
+    let serialize = match serde_json::to_string(&model) {
+        Ok(serialize) => serialize,
+        Err(e) => {
+            println!("Fail to serialize model data :{}", e);
+            std::process::exit(1); 
+        },
+    };
+    match std::fs::write("data/model.json", serialize){
+        Ok(_a) => println!("Model successfully trained and saved in {}", path.bold().green()),
+        Err(e) => println!("Fail to save the model in {}: {}", path.red(), e),
+    };
+    let graph_path = "data/model.png";
+    match draw(&data, &model, graph_path) {
+        Ok(_s) => println!("Graph of linear regression saved in {}", graph_path.bold().green()),
+        Err(_e) => println!("Fail to save the graph in {}", graph_path.red()),
+    };
     Ok(())
 }
