@@ -1,30 +1,15 @@
-use ::std::fs::File;
-use csv::Reader;
-use serde::{Serialize, Deserialize};
 use std::error::Error;
-use std::path::Path;
 use plotters::prelude::*;
 use plotters::series::LineSeries;
 use plotters::style::full_palette::{BLUE, RED};
-use shared_lib::{predict, normalize, Model};
+use shared_lib::{
+    Field,
+    Model,
+    normalize,
+    parse,
+    predict,
+};
 
-#[derive(Debug, Deserialize)]
-struct Field
-{
-    km: u64,
-    price: f64,
-}
-
-fn parse<P: AsRef<Path>>(path: P) -> Result<Vec<Field>, Box<dyn Error>>
-{
-    let file = File::open(path)?;
-    let mut reader = Reader::from_reader(file);
-    let mut data = Vec::new();
-    for result in reader.deserialize() {
-        data.push(result?);
-    }
-    Ok(data)
-}
 
 fn mean_km(data: &[Field]) -> f64
 {
@@ -48,7 +33,7 @@ fn standard_deviation(mean: f64, data: &[Field]) -> f64
 
 fn get_data_parameters(data: &[Field]) -> Model
 {
-    let mean = mean_km(&data);
+    let mean = mean_km(data);
     let standard_deviation = standard_deviation(mean, data);
     let (theta0, theta1) = (0.,0.);
     Model {theta0, theta1, mean, standard_deviation}
@@ -57,8 +42,8 @@ fn get_data_parameters(data: &[Field]) -> Model
 fn train(data: &[Field]) -> Model
 {
     let mut model = get_data_parameters(data);
-    let epochs = 1000;
-    let learning_rate = 0.01;
+    let epochs = 50000;
+    let learning_rate = 0.001;
     
 
     for _epoch in 0..epochs
@@ -110,14 +95,14 @@ fn draw(data: &[Field], model: &Model) -> Result<(), Box<dyn Error>>
         (x, predict(x as u64, model))
     }).collect();
     
-    chart.draw_series(LineSeries::new(line_points, &RED))?
+    chart.draw_series(LineSeries::new(line_points, RED))?
     .label("Regression Line")
-    .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
+    .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], RED));
 
     chart
         .configure_series_labels()
-        .background_style(&WHITE.mix(0.8))
-        .border_style(&BLACK)
+        .background_style(WHITE.mix(0.8))
+        .border_style(BLACK)
         .draw()?;
 
     root.present()?;
