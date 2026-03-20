@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "predict", "shared_lib",
+    "precision_bonus", "precision_bonus",
     "train",
-    "shared_lib",
+    "shared_lib", "precision_bonus",
 ]
 resolver = "2"

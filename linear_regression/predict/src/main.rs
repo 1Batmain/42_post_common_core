@@ -1,33 +1,56 @@
+use colored::Colorize;
+use shared_lib::{Model, predict};
+
 use std::env;
 use std::error::Error;
-use shared_lib::{predict, Model};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
-        println!("This program take the mileage of the car to estimate price");
-        std::process::exit(1);
-    }
 
-    let path = "data/model.json";
-    
-    let serialized = match std::fs::read_to_string(path) {
-        Ok(content) => { println!("Getting weights from {path}"); content },
-        Err(e) => {eprintln!("Failed to read the file : {}", e); std::process::exit(1)},
-    };
-    let model: Model = match serde_json::from_str(&serialized) {
-        Ok(model) => {println!("Model weights sets !"); model },
-        Err(e) => {eprintln!("Failed to parse model weights, try to run the train program again : {}", e); std::process::exit(1) },
+    let path = match args.get(1) {
+        Some(path) => path,
+        None => "data/model.json",
     };
 
+    let model: Model =
+        match std::fs::read_to_string(path) {
+            Ok(serialized) => {
+                match serde_json::from_str(&serialized) {
+                    Ok(model) => {
+                        println!("Model weights sets !");
+                        model
+                    }
+                    Err(e) => {
+                        println!("Invalids model weights in file {}, run train program again :{}", path.bold(), e);
+                        Model::default()
+                    }
+                }
+            }
+            Err(_) => {
+                println!("No model found at {} you may run the train program for accurate results (result will always be 0)", path.bold());
+                Model::default()
+            }
+        };
 
-    let mileage: u64 = match args[1].parse() {
+    println!("Enter a mileage to predict :");
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).unwrap_or(0);
+    let input = input.trim();
+
+    let mileage: f32 =  match input.parse(){
         Ok(mileage) => mileage,
-        Err(e) => { eprintln!("cant estimate price for \"{}\" because itsm", args[1]); std::process::exit(1) },
+        Err(_e) => {
+            eprintln!("cant estimate price for \"{}\" because its not a valid mileage number", input);
+            std::process::exit(1)
+        }
     };
 
-    let price = predict(mileage, &model) as u64;
-    println!("The estimated price for {mileage} miles is {price} $");
+    let price = predict(mileage, &model) as f32;
+    println!(
+        "The estimated price for {} miles is {} $",
+        mileage.to_string().bold(),
+        price.to_string().bold()
+    );
 
     Ok(())
 }
