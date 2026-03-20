@@ -2,3 +2,6 @@ data/model.json
 data/model.png
 *.lock
 target*
+subject*
+bin*
+.rustc*

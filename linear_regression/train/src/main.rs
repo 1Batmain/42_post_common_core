@@ -5,21 +5,21 @@ use plotters::style::full_palette::{BLUE, RED};
 use shared_lib::{Field, Model, normalize, parse, predict};
 use std::error::Error;
 
-fn mean_km(data: &[Field]) -> f64 {
-    let sum: f64 = data.iter().map(|field| field.km as f64).sum();
-    let count = data.len() as f64;
+fn mean_km(data: &[Field]) -> f32 {
+    let sum: f32 = data.iter().map(|field| field.km as f32).sum();
+    let count = data.len() as f32;
     sum / count
 }
 
-fn standard_deviation(mean: f64, data: &[Field]) -> f64 {
-    let variance: f64 = data
+fn standard_deviation(mean: f32, data: &[Field]) -> f32 {
+    let variance: f32 = data
         .iter()
         .map(|field| {
-            let diff = field.km as f64 - mean;
+            let diff = field.km as f32 - mean;
             diff * diff
         })
-        .sum::<f64>()
-        / (data.len() as f64);
+        .sum::<f32>()
+        / (data.len() as f32);
     variance.sqrt()
 }
 
@@ -46,15 +46,15 @@ fn train(data: &[Field]) -> Model {
                 * data
                     .iter()
                     .map(|f| predict(f.km, &model) - f.price)
-                    .sum::<f64>()
-                / data.len() as f64;
-        let theta1_tmp = model.theta1
+                    .sum::<f32>()
+                / data.len() as f32;
+        let theta1_tmp:f32 = model.theta1
             - learning_rate
                 * data
                     .iter()
                     .map(|f| (predict(f.km, &model) - f.price) * normalize(f.km, &model))
-                    .sum::<f64>()
-                / data.len() as f64;
+                    .sum::<f32>()
+                / data.len() as f32;
         model.theta0 = theta0_tmp;
         model.theta1 = theta1_tmp;
     }
@@ -67,20 +67,20 @@ fn draw(data: &[Field], model: &Model, path: &str) -> Result<(), Box<dyn Error>>
 
     let min_km = data
         .iter()
-        .map(|f| f.km as f64)
-        .fold(f64::INFINITY, |a, b| a.min(b));
+        .map(|f| f.km as f32)
+        .fold(f32::INFINITY, |a, b| a.min(b));
     let max_km = data
         .iter()
-        .map(|f| f.km as f64)
-        .fold(f64::NEG_INFINITY, |a, b| a.max(b));
+        .map(|f| f.km as f32)
+        .fold(f32::NEG_INFINITY, |a, b| a.max(b));
     let min_price = data
         .iter()
         .map(|f| f.price)
-        .fold(f64::INFINITY, |a, b| a.min(b));
+        .fold(f32::INFINITY, |a, b| a.min(b));
     let max_price = data
         .iter()
         .map(|f| f.price)
-        .fold(f64::NEG_INFINITY, |a, b| a.max(b));
+        .fold(f32::NEG_INFINITY, |a, b| a.max(b));
 
     let km_min = min_km * 0.9;
     let km_max = max_km * 1.1;
@@ -97,15 +97,15 @@ fn draw(data: &[Field], model: &Model, path: &str) -> Result<(), Box<dyn Error>>
     chart.configure_mesh().draw()?;
 
     chart.draw_series(data.iter().map(|point| {
-        let x = point.km as f64;
+        let x = point.km as f32;
         let y = point.price;
         Circle::new((x, y), 5, BLUE.filled())
     }))?;
 
-    let line_points: Vec<(f64, f64)> = (0..=100)
+    let line_points: Vec<(f32, f32)> = (0..=100)
         .map(|i| {
-            let x = km_min + (km_max - km_min) * (i as f64 / 100.0);
-            (x, predict(x as u64, model))
+            let x = km_min + (km_max - km_min) * (i as f32 / 100.0);
+            (x, predict(x as f32, model))
         })
         .collect();
 
@@ -146,10 +146,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             std::process::exit(1);
         }
     };
-    match std::fs::write("data/model.json", serialize) {
+    let model_path = "data/model.json";
+    match std::fs::write(model_path, serialize) {
         Ok(_a) => println!(
             "Model successfully trained and saved in {}",
-            path.bold().green()
+            model_path.bold().green()
         ),
         Err(e) => println!("Fail to save the model in {}: {}", path.red(), e),
     };
