@@ -8,8 +8,20 @@ use shared_lib::{
 
 fn main() {
 
-    let serialize: String = std::fs::read_to_string("data/model.json").unwrap();
-    let model : Model = serde_json::from_str(&serialize).unwrap();
+    let serialize: String = match std::fs::read_to_string("data/model.json"){
+        Ok(ser) => ser,
+        Err(_) => {
+            println!("You must train model to test it !");
+            std::process::exit(1);
+        }
+    };
+    let model : Model = match serde_json::from_str(&serialize){
+        Ok(m) => m,
+        Err(e) => {
+            println!("Error in the model.json spec file: {}", e);
+            std::process::exit(1);
+        }
+    };
     let data : Vec<Field> = match parse("data/data.csv") {
         Ok(data)=> data,
         Err(e) => {

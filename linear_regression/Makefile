@@ -5,7 +5,7 @@ export RUST_FONTCONFIG_DLOPEN=1
 export PATH := $(PWD)/.cargo/bin:$(PATH)
 
 all : | .cargo
-	$(MAKE) $(NAMES)
+	@$(MAKE) $(NAMES)
 
 
 
@@ -43,4 +43,4 @@ fclean : clean
 re : fclean all
 
 .PHONY: clean fclean
-.IGNORE: clean fclean $(addprefix bin_, $(NAMES))
+.IGNORE: clean fclean $(addprefix bin_, $(NAMES)) .cargo
