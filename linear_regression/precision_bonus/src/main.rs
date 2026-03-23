@@ -1,5 +1,5 @@
 use shared_lib::{
-    Field, 
+    Field,
     Model,
     parse,
     predict,
@@ -18,9 +18,9 @@ fn main() {
         }
     };
 
-    let mut predicted: f64;
-    let mut expected: f64;
-    let mut delta: f64 = 100.;
+    let mut predicted: f32;
+    let mut expected: f32;
+    let mut delta: f32 = 100.;
 
     for line in &data {
         predicted = predict(line.km, &model);

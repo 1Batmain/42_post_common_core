@@ -4,28 +4,39 @@ use serde::{Serialize, Deserialize};
 use std::path::Path;
 use std::error::Error;
 
-#[derive(Default, Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Model
 {
-    pub theta0: f64,
-    pub theta1: f64,
-    pub mean: f64,
-    pub standard_deviation: f64,
+    pub theta0: f32,
+    pub theta1: f32,
+    pub mean: f32,
+    pub standard_deviation: f32,
+}
+
+impl Default for Model {
+    fn default() -> Self {
+        Self {
+            theta0: 0.,
+            theta1: 0.,
+            mean: 0.,
+            standard_deviation: 1.,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Field
 {
-    pub km: u64,
-    pub price: f64,
+    pub km: f32,
+    pub price: f32,
 }
 
-pub fn normalize(km: u64, model: &Model) -> f64
+pub fn normalize(km: f32, model: &Model) -> f32
 {
-    (km as f64 - model.mean) / model.standard_deviation
+    (km as f32 - model.mean) / model.standard_deviation
 }
 
-pub fn predict(km: u64, model: &Model) -> f64
+pub fn predict(km: f32, model: &Model) -> f32
 {
     let km = normalize(km, model);
     model.theta0 + km * model.theta1
