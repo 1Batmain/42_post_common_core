@@ -1,4 +1,6 @@
+use colored::Colorize;
 use shared_lib::{Model, predict};
+
 use std::env;
 use std::error::Error;
 
@@ -44,7 +46,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let price = predict(mileage, &model) as u64;
-    println!("The estimated price for {mileage} miles is {price} $");
+    println!(
+        "The estimated price for {} miles is {} $",
+        mileage.to_string().bold(),
+        price.to_string().bold()
+    );
 
     Ok(())
 }

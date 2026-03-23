@@ -146,10 +146,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             std::process::exit(1);
         }
     };
-    match std::fs::write("data/model.json", serialize) {
+    let model_path = "data/model.json";
+    match std::fs::write(model_path, serialize) {
         Ok(_a) => println!(
             "Model successfully trained and saved in {}",
-            path.bold().green()
+            model_path.bold().green()
         ),
         Err(e) => println!("Fail to save the model in {}: {}", path.red(), e),
     };
