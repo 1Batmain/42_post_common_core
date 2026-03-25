@@ -1,5 +1,5 @@
 use colored::Colorize;
-use matrix::{Matrix, Vector, Tensor};
+use matrix::{Matrix, Tensor, Vector};
 
 fn main() {
     println!(
@@ -44,12 +44,12 @@ fn main() {
     let a = Vector::from([1; 10]);
     let b = Vector::from([2; 10]);
     let mut r = a.clone();
-    r.add(&b);
+    r.add(&b).unwrap();
     println!("a->{}\nb->{}\nr->{}", a, b, r.to_string().bold().red());
     let a = Matrix::from([1; 10], 2, 5);
     let b = Matrix::from([2; 10], 2, 5);
     let mut r = a.clone();
-    r.add(&b);
+    r.add(&b).unwrap();
     println!("a->{}\nb->{}\nr->{}", a, b, r.to_string().bold().red());
     // Should panic (Not same size)
     // let a = Vector::from([1; 10]);
@@ -73,12 +73,12 @@ fn main() {
     let a = Vector::from([1; 10]);
     let b = Vector::from([2; 10]);
     let mut r = a.clone();
-    r.sub(&b);
+    r.sub(&b).unwrap();
     println!("a->{}\nb->{}\nr->{}", a, b, r.to_string().bold().red());
     let a = Matrix::from([1; 10], 2, 5);
     let b = Matrix::from([2; 10], 2, 5);
     let mut r = a.clone();
-    r.sub(&b);
+    r.sub(&b).unwrap();
     println!("a->{}\nb->{}\nr->{}", a, b, r.to_string().bold().red());
     // Should panic (Not same size)
     // let a = Vector::from([1; 10]);
@@ -102,10 +102,10 @@ fn main() {
     let scaler: usize = 42;
     let mut a = Vector::from([1; 10]);
     println!("{:^7}->{}", "a", a);
-    a.scl(scaler);
+    a.scl(scaler).unwrap();
     println!("{:^7}->{}", format!("{} * a", scaler), a);
     let mut a = Matrix::from([1; 9], 3, 3);
     println!("{:^7}->{}", "a", a);
-    a.scl(scaler);
+    a.scl(scaler).unwrap();
     println!("{:^7}->{}", format!("{} * a", scaler), a);
 }

@@ -11,7 +11,7 @@ fn main() {
     let a = Vector::from([1.; 2]);
     let b = Vector::from([-1.; 2]);
     let mut mix = 0.5;
-    let res = lerp(&a, &b, mix);
+    let res = lerp(&a, &b, mix).unwrap();
     println!(
         "{}",
         format!(
@@ -23,7 +23,7 @@ fn main() {
         )
     );
     mix = 0.;
-    let res = lerp(&a, &b, mix);
+    let res = lerp(&a, &b, mix).unwrap();
     println!(
         "{}",
         format!(
@@ -35,7 +35,7 @@ fn main() {
         )
     );
     mix = 1.;
-    let res = lerp(&a, &b, mix);
+    let res = lerp(&a, &b, mix).unwrap();
     println!(
         "{}",
         format!(
@@ -55,7 +55,7 @@ fn main() {
     let c = Matrix::from([1.; 9], 3, 3);
     let d = Matrix::from([-1.; 9], 3, 3);
     let mut mix = 0.5;
-    let res = lerp(&c, &d, mix);
+    let res = lerp(&c, &d, mix).unwrap();
     println!(
         "{}",
         format!(
@@ -67,7 +67,7 @@ fn main() {
         )
     );
     mix = 0.;
-    let res = lerp(&c, &d, mix);
+    let res = lerp(&c, &d, mix).unwrap();
     println!(
         "{}",
         format!(
@@ -79,7 +79,7 @@ fn main() {
         )
     );
     mix = 1.;
-    let res = lerp(&c, &d, mix);
+    let res = lerp(&c, &d, mix).unwrap();
     println!(
         "{}",
         format!(
@@ -97,7 +97,7 @@ fn main() {
     // panics! not same shape
     println!("{}", "Should panic".bold().underline().red());
     let a2 = Vector::from([3.; 6]);
-    let res = lerp(&a, &a2, mix);
+    let res = lerp(&a, &a2, mix).unwrap();
     println!(
         "{}",
         format!(

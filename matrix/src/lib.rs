@@ -1,5 +1,5 @@
 use std::{
-    fmt::{Debug, Display, Formatter, Result},
+    fmt::{Debug, Display, Formatter},
     iter::Sum,
     ops::{Add, Mul, Sub},
 };
@@ -32,9 +32,10 @@ pub struct Matrix<T> {
 }
 
 pub trait Tensor<T> {
-    fn add(&mut self, op: &Self);
-    fn sub(&mut self, op: &Self);
-    fn scl(&mut self, op: T);
+    fn add(&mut self, op: &Self) -> Result<(), String>;
+    fn sub(&mut self, op: &Self) -> Result<(), String>;
+    fn scl(&mut self, op: T) -> Result<(), String>;
+    fn check_dim_eq(&self, op: &Self) -> Result<(), String>;
 }
 
 ///////////////////////////////////////////////////
@@ -43,42 +44,53 @@ pub trait Tensor<T> {
 ///////////////////////////////////////////////////
 ///////////////////////////////////////////////////
 
-pub fn lerp<T: Scalar, S: Tensor<T>>(a: &S, b: &S, mix: T) -> S
-where
-    S: Clone,
-{
-    let mut res = a.clone();
-    let mut diff = b.clone();
-    diff.sub(a);
-    diff.scl(mix);
-    res.add(&diff);
-    res
-}
-
+//ex03
 pub fn dot<T: Scalar>(a: &Vector<T>, b: &Vector<T>) -> T {
     let a = &a.data;
     let b = &b.data;
     assert_eq!(a.len(), b.len(), "The two vectors are not of the same size");
     a.iter().zip(b.iter()).map(|(a, b)| *a * *b).sum()
 }
-
+//ex02
+pub fn lerp<T: Scalar, S: Tensor<T>>(a: &S, b: &S, mix: T) -> Result<S, String>
+where
+    S: Clone,
+{
+    let mut res = a.clone();
+    let mut diff = b.clone();
+    diff.sub(a)?;
+    diff.scl(mix)?;
+    res.add(&diff)?;
+    Ok(res)
+}
+//ex01
 pub fn linear_combination<T: Scalar>(
     u: impl AsRef<[Vector<T>]>,
     coefs: impl AsRef<[T]>,
-) -> Vector<T> {
+) -> Result<Vector<T>, String> {
     u.as_ref()
         .iter()
         .zip(coefs.as_ref().iter())
         .map(|(v, c)| {
             let mut r = v.clone();
-            r.scl(*c);
-            r
+            r.scl(*c)?;
+            Ok(r)
         })
-        .reduce(|mut acc, v| {
-            acc.add(&v);
-            acc
-        })
-        .unwrap()
+        .try_fold(
+            None,
+            |acc: Option<Vector<T>>,
+             v: Result<Vector<T>, String>|
+             -> Result<Option<Vector<T>>, String> {
+                match acc {
+                    Some(mut a) => {
+                        a.add(&v?)?;
+                        Ok(Some(a))
+                    }
+                    None => Ok(Some(v?)),
+                }
+            },
+        )?
+        .ok_or_else(|| "No vector provided".to_string())
 }
 
 impl<T: Scalar> Vector<T> {
@@ -89,22 +101,32 @@ impl<T: Scalar> Vector<T> {
     }
 }
 impl<T: Scalar> Tensor<T> for Vector<T> {
-    fn add(&mut self, v: &Vector<T>) {
-        assert_eq!(self.data.len(), v.data.len(), "Vector size mismatch");
+    fn check_dim_eq(&self, v: &Vector<T>) -> Result<(), String> {
+        if self.data.len() != v.data.len() {
+            return Err("Vector size mismatch".into());
+        };
+        Ok(())
+    }
+    fn add(&mut self, v: &Vector<T>) -> Result<(), String> {
+        self.check_dim_eq(v)?;
         self.data
             .iter_mut()
             .zip(v.data.iter())
             .for_each(|(a, b)| *a = *a + *b);
+        Ok(())
     }
-    fn sub(&mut self, v: &Vector<T>) {
-        assert_eq!(self.data.len(), v.data.len(), "Vector size mismatch");
+
+    fn sub(&mut self, v: &Vector<T>) -> Result<(), String> {
+        self.check_dim_eq(v)?;
         self.data
             .iter_mut()
             .zip(v.data.iter())
             .for_each(|(a, b)| *a = *a - *b);
+        Ok(())
     }
-    fn scl(&mut self, s: T) {
+    fn scl(&mut self, s: T) -> Result<(), String> {
         self.data.iter_mut().for_each(|a| *a = *a * s);
+        Ok(())
     }
 }
 
@@ -121,46 +143,46 @@ impl<T: Scalar> Matrix<T> {
             cols: c,
         }
     }
-    fn check_dim_eq(&self, m: &Matrix<T>) {
-        assert_eq!(
-            self.cols, m.cols,
-            "Cols mismatch {} : {}",
-            self.cols, m.cols
-        );
-        assert_eq!(
-            self.rows, m.rows,
-            "Rows mismatch {} : {}",
-            self.rows, m.rows
-        );
-    }
 }
 impl<T: Scalar> Tensor<T> for Matrix<T> {
-    fn add(&mut self, m: &Matrix<T>) {
-        self.check_dim_eq(m);
+    fn check_dim_eq(&self, m: &Matrix<T>) -> Result<(), String> {
+        if self.cols != m.cols {
+            return Err(format!("Cols mismatch {} : {}", self.cols, m.cols));
+        }
+        if self.rows != m.rows {
+            return Err(format!("Rows mismatch {} : {}", self.rows, m.rows));
+        }
+        Ok(())
+    }
+    fn add(&mut self, m: &Matrix<T>) -> Result<(), String> {
+        self.check_dim_eq(m)?;
         self.data
             .iter_mut()
             .zip(m.data.iter())
             .for_each(|(a, b)| *a = *a + *b);
+        Ok(())
     }
-    fn sub(&mut self, m: &Matrix<T>) {
-        self.check_dim_eq(m);
+    fn sub(&mut self, m: &Matrix<T>) -> Result<(), String> {
+        self.check_dim_eq(m)?;
         self.data
             .iter_mut()
             .zip(m.data.iter())
             .for_each(|(a, b)| *a = *a - *b);
+        Ok(())
     }
-    fn scl(&mut self, s: T) {
+    fn scl(&mut self, s: T) -> Result<(), String> {
         self.data.iter_mut().for_each(|a| *a = *a * s);
+        Ok(())
     }
 }
 
 impl<T: Scalar> Display for Vector<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.data)
     }
 }
 impl<T: Scalar> Display for Matrix<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "\x1B[s")?;
         let width = self
             .data

@@ -12,6 +12,7 @@ fn main() {
         "{:^21}|{:^21}",
         "[10., -2., 0.5]",
         linear_combination([e1, e2, e3], [10., -2., 0.5])
+            .unwrap()
             .to_string()
             .bold()
     );
@@ -19,7 +20,10 @@ fn main() {
     println!(
         "{:^21}|{:^21}",
         "[10., 0., 230]",
-        linear_combination([v1, v2], [10., -2.]).to_string().bold()
+        linear_combination([v1, v2], [10., -2.])
+            .unwrap()
+            .to_string()
+            .bold()
     );
     // Should panic
     // let e1 = Vector::from([1., 0., 0., 4.]); // Vectors of different shapes
