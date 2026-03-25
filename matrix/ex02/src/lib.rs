@@ -28,10 +28,9 @@ pub struct Matrix<T> {
 }
 
 pub trait Tensor<T> {
-    fn data(&mut self) -> &Vec<T>;
-    fn add(&mut self, op: &impl Tensor<T>);
-    fn sub(&mut self, op: &impl Tensor<T>);
-    fn scl(&mut self, op: &impl Tensor<T>);
+    fn add(&mut self, op: &Self);
+    fn sub(&mut self, op: &Self);
+    fn scl(&mut self, op: T);
 }
 
 ///////////////////////////////////////////////////
@@ -39,6 +38,18 @@ pub trait Tensor<T> {
 ///////////////////IMPLEMENTATIONS/////////////////
 ///////////////////////////////////////////////////
 ///////////////////////////////////////////////////
+
+pub fn lerp<T: Scalar, S: Tensor<T>>(a: &S, b: &S, mix: T) -> S
+where
+    S: Clone,
+{
+    let mut res = a.clone();
+    let mut diff = b.clone();
+    diff.sub(a);
+    diff.scl(mix);
+    res.add(&diff);
+    res
+}
 
 pub fn linear_combination<T: Scalar>(
     u: impl AsRef<[Vector<T>]>,
@@ -67,14 +78,11 @@ impl<T: Scalar> Vector<T> {
     }
 }
 impl<T: Scalar> Tensor<T> for Vector<T> {
-    fn data(&mut self) -> &Vec<T> {
-        &self.data
-    }
-    fn add(&mut self, v: &impl Tensor<T>) {
-        assert_eq!(self.data.len(), v.data().len(), "Vector size mismatch");
+    fn add(&mut self, v: &Vector<T>) {
+        assert_eq!(self.data.len(), v.data.len(), "Vector size mismatch");
         self.data
             .iter_mut()
-            .zip(v.data().iter())
+            .zip(v.data.iter())
             .for_each(|(a, b)| *a = *a + *b);
     }
     fn sub(&mut self, v: &Vector<T>) {
@@ -114,22 +122,23 @@ impl<T: Scalar> Matrix<T> {
             self.rows, m.rows
         );
     }
-
-    pub fn add(&mut self, m: &Matrix<T>) {
+}
+impl<T: Scalar> Tensor<T> for Matrix<T> {
+    fn add(&mut self, m: &Matrix<T>) {
         self.check_dim_eq(m);
         self.data
             .iter_mut()
             .zip(m.data.iter())
             .for_each(|(a, b)| *a = *a + *b);
     }
-    pub fn sub(&mut self, m: &Matrix<T>) {
+    fn sub(&mut self, m: &Matrix<T>) {
         self.check_dim_eq(m);
         self.data
             .iter_mut()
             .zip(m.data.iter())
             .for_each(|(a, b)| *a = *a - *b);
     }
-    pub fn scl(&mut self, s: T) {
+    fn scl(&mut self, s: T) {
         self.data.iter_mut().for_each(|a| *a = *a * s);
     }
 }
