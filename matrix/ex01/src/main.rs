@@ -1,5 +1,5 @@
 use colored::Colorize;
-use ex01::{Vector, linear_combination};
+use matrix::{Vector, linear_combination};
 
 fn main() {
     let e1 = Vector::from([1., 0., 0.]);

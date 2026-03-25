@@ -1,5 +1,5 @@
 use colored::Colorize;
-use ex02::{Matrix, Vector, lerp};
+use matrix::{Matrix, Vector, lerp};
 
 fn main() {
     ///////////////////////////////////////////////////////////////

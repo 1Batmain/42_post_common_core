@@ -16,7 +16,12 @@ name = "ex01"
 version = "0.1.0"
 dependencies = [
  "colored",
+ "matrix",
 ]
+
+[[package]]
+name = "matrix"
+version = "0.1.0"
 
 [[package]]
 name = "windows-link"

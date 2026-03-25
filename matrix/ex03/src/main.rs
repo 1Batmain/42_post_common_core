@@ -1,5 +1,5 @@
 use colored::Colorize;
-use ex03::{Vector, dot};
+use matrix::{Vector, dot};
 
 fn main() {
     println!(
