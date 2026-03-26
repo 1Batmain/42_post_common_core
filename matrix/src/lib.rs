@@ -1,7 +1,7 @@
+use num_traits::Float;
 use std::{
     fmt::{Debug, Display, Formatter},
     iter::Sum,
-    ops::{Add, Mul, Sub},
 };
 
 ///////////////////////////////////////////////////
@@ -10,14 +10,8 @@ use std::{
 ///////////////////////////////////////////////////
 ///////////////////////////////////////////////////
 
-pub trait Scalar:
-    Add<Output = Self> + Sub<Output = Self> + Mul<Output = Self> + Copy + Display + Debug + Sum
-{
-}
-impl<T: Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Copy + Display + Debug + Sum> Scalar
-    for T
-{
-}
+pub trait Scalar: Float + Copy + Display + Debug + Sum {}
+impl<T: Float + Copy + Display + Debug + Sum> Scalar for T {}
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Vector<T> {
@@ -101,6 +95,13 @@ impl<T: Scalar> Vector<T> {
         Vector {
             data: s.as_ref().to_vec(),
         }
+    }
+
+    pub fn norm_1(&self) -> T {
+        self.data.iter().copied().sum()
+    }
+    pub fn norm_2(&self) -> T {
+        self.data.iter().map(|x| *x * *x).sum::<T>().sqrt()
     }
 }
 impl<T: Scalar> Tensor<T> for Vector<T> {
@@ -224,11 +225,11 @@ mod tests {
 
     #[test]
     fn ex00_valid_constructors() {
-        let vec = Vector::from([1, 2, 3]);
+        let vec = Vector::from([1., 2., 3.]);
         assert_eq!(
             vec,
             Vector {
-                data: vec!(1, 2, 3)
+                data: vec!(1., 2., 3.)
             }
         );
         let vec = Vector::from([1., 2., 3.]);
@@ -238,18 +239,18 @@ mod tests {
                 data: vec!(1., 2., 3.)
             }
         );
-        let vec = Vector::from([0; 10]);
+        let vec = Vector::from([0.; 10]);
         assert_eq!(
             vec,
             Vector {
-                data: vec!(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+                data: vec!(0., 0., 0., 0., 0., 0., 0., 0., 0., 0.)
             }
         );
-        let mat = Matrix::from([1, 2, 3], 1, 3);
+        let mat = Matrix::from([1., 2., 3.], 1, 3);
         assert_eq!(
             mat,
             Matrix {
-                data: vec!(1, 2, 3),
+                data: vec!(1., 2., 3.),
                 cols: 1,
                 rows: 3,
             }
@@ -263,11 +264,11 @@ mod tests {
                 rows: 1,
             }
         );
-        let mat = Matrix::from([0; 10], 2, 5);
+        let mat = Matrix::from([0.; 10], 2, 5);
         assert_eq!(
             mat,
             Matrix {
-                data: vec!(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                data: vec!(0.; 10),
                 cols: 2,
                 rows: 5,
             }
@@ -276,78 +277,88 @@ mod tests {
     #[test]
     #[should_panic]
     fn ex00_invalid_constructor() {
-        Matrix::from([0; 10], 20, 5);
+        Matrix::from([0.; 10], 20, 5);
     }
 
     #[test]
     fn ex00_test_add() {
-        let a = Vector::from([1; 1]);
-        let b = Vector::from([2; 1]);
+        let a = Vector::from([1.; 1]);
+        let b = Vector::from([2.; 1]);
         let mut r = a.clone();
         assert!(r.add(&b).is_ok());
-        assert_eq!(r, Vector { data: vec!(3) });
-        let a = Matrix::from([1; 10], 2, 5);
-        let b = Matrix::from([2; 10], 2, 5);
+        assert_eq!(r, Vector { data: vec!(3.) });
+        let a = Matrix::from([1.; 10], 2, 5);
+        let b = Matrix::from([2.; 10], 2, 5);
         let mut r = a.clone();
         assert!(r.add(&b).is_ok());
         assert_eq!(
             r,
             Matrix {
-                data: vec!(3; 10),
+                data: vec!(3.; 10),
                 cols: 2,
                 rows: 5
             }
         );
-        let a = Vector::from([1; 10]);
-        let b = Vector::from([2; 15]);
+        let a = Vector::from([1.; 10]);
+        let b = Vector::from([2.; 15]);
         let mut r = a.clone();
         assert!(r.add(&b).is_err());
-        let a = Matrix::from([1; 10], 2, 5);
-        let b = Matrix::from([2; 10], 5, 2);
+        let a = Matrix::from([1.; 10], 2, 5);
+        let b = Matrix::from([2.; 10], 5, 2);
         let mut r = a.clone();
         assert!(r.add(&b).is_err());
     }
     #[test]
     fn ex00_valid_sum() {
-        let a = Vector::from([1; 10]);
-        let b = Vector::from([2; 10]);
+        let a = Vector::from([1.; 10]);
+        let b = Vector::from([2.; 10]);
         let mut r = a.clone();
         assert!(r.sub(&b).is_ok());
-        assert_eq!(r, Vector { data: vec!(-1; 10) });
-        let a = Matrix::from([1; 10], 2, 5);
-        let b = Matrix::from([2; 10], 2, 5);
+        assert_eq!(
+            r,
+            Vector {
+                data: vec!(-1.; 10)
+            }
+        );
+        let a = Matrix::from([1.; 10], 2, 5);
+        let b = Matrix::from([2.; 10], 2, 5);
         let mut r = a.clone();
         assert!(r.sub(&b).is_ok());
         assert_eq!(
             r,
             Matrix {
-                data: vec!(-1; 10),
+                data: vec!(-1.; 10),
                 cols: 2,
                 rows: 5,
             }
         );
-        let a = Vector::from([1; 10]);
-        let b = Vector::from([2; 15]);
+        let a = Vector::from([1.; 10]);
+        let b = Vector::from([2.; 15]);
         let mut r = a.clone();
 
         assert!(r.sub(&b).is_err());
-        let a = Matrix::from([1; 10], 2, 5);
-        let b = Matrix::from([2; 10], 5, 2);
+        let a = Matrix::from([1.; 10], 2, 5);
+        let b = Matrix::from([2.; 10], 5, 2);
         let mut r = a.clone();
         assert!(r.sub(&b).is_err());
     }
     #[test]
     fn ex00_valid_scl() {
-        let scaler: usize = 42;
-        let mut a = Vector::from([1; 10]);
+        let scaler: f32 = 42.;
+        let mut a = Vector::from([1.; 10]);
         assert!(a.scl(scaler).is_ok());
-        assert_eq!(a, Vector { data: vec!(42; 10) });
-        let mut a = Matrix::from([1; 9], 3, 3);
+        assert_eq!(
+            a,
+            Vector {
+                data: vec!(42.; 10)
+            }
+        );
+        let mut a = Matrix::from([1.; 9], 3, 3);
         assert!(a.scl(scaler).is_ok());
         assert_eq!(
             a,
             Matrix {
-                data: vec!(42; 9),
+                data: vec!(42.; 9),
                 cols: 3,
                 rows: 3,
             }
@@ -437,19 +448,35 @@ mod tests {
     }
     #[test]
     fn ex03() {
-        let v1 = Vector::from([0, 1]);
-        let v2 = Vector::from([1, 0]);
-        assert_eq!(dot(&v1, &v2), 0);
-        let v1 = Vector::from([1, 1]);
-        let v2 = Vector::from([-1, 1]);
-        assert_eq!(dot(&v1, &v2), 0);
-        let v1 = Vector::from([1, 1]);
-        let v2 = Vector::from([1, 1]);
-        assert_eq!(dot(&v1, &v2), 2);
-        let v1 = Vector::from([-1, 6]);
-        let v2 = Vector::from([3, 2]);
-        assert_eq!(dot(&v1, &v2), 9);
+        let v1 = Vector::from([0., 1.]);
+        let v2 = Vector::from([1., 0.]);
+        assert_eq!(dot(&v1, &v2), 0.);
+        let v1 = Vector::from([1., 1.]);
+        let v2 = Vector::from([-1., 1.]);
+        assert_eq!(dot(&v1, &v2), 0.);
+        let v1 = Vector::from([1., 1.]);
+        let v2 = Vector::from([1., 1.]);
+        assert_eq!(dot(&v1, &v2), 2.);
+        let v1 = Vector::from([-1., 6.]);
+        let v2 = Vector::from([3., 2.]);
+        assert_eq!(dot(&v1, &v2), 9.);
     }
-   #[test]
-   fn ex04_
+    #[test]
+    fn ex04_norms() {
+        let vx = Vector::from([3., 0., 0.]);
+        let vy = Vector::from([0., 3., 0.]);
+        let vz = Vector::from([0., 0., 3.]);
+        assert_eq!(vx.norm_1(), 3.0);
+        assert_eq!(vy.norm_1(), 3.0);
+        assert_eq!(vz.norm_1(), 3.0);
+        assert_eq!(vx.norm_2(), 3.0);
+        assert_eq!(vy.norm_2(), 3.0);
+        assert_eq!(vz.norm_2(), 3.0);
+        let mut v = vx.clone();
+        assert!(v.add(&vy).is_ok());
+        assert!(v.add(&vz).is_ok());
+        assert_eq!(v.norm_1(), 9.0);
+        let fixNorm = Vector::from([80198051.0; 3]);
+        assert_eq!(fixNorm.norm_2(), 138907099.0);
+    }
 }
