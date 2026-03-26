@@ -68,6 +68,9 @@ pub fn linear_combination<T: Scalar>(
     u: impl AsRef<[Vector<T>]>,
     coefs: impl AsRef<[T]>,
 ) -> Result<Vector<T>, String> {
+    if coefs.as_ref().len() != u.as_ref().len() {
+        return Err("Scalar list doesnt match number of vectors".into());
+    }
     u.as_ref()
         .iter()
         .zip(coefs.as_ref().iter())
@@ -213,4 +216,240 @@ impl<T: Scalar> Display for Matrix<T> {
         }
         Ok(())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ex00_valid_constructors() {
+        let vec = Vector::from([1, 2, 3]);
+        assert_eq!(
+            vec,
+            Vector {
+                data: vec!(1, 2, 3)
+            }
+        );
+        let vec = Vector::from([1., 2., 3.]);
+        assert_eq!(
+            vec,
+            Vector {
+                data: vec!(1., 2., 3.)
+            }
+        );
+        let vec = Vector::from([0; 10]);
+        assert_eq!(
+            vec,
+            Vector {
+                data: vec!(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            }
+        );
+        let mat = Matrix::from([1, 2, 3], 1, 3);
+        assert_eq!(
+            mat,
+            Matrix {
+                data: vec!(1, 2, 3),
+                cols: 1,
+                rows: 3,
+            }
+        );
+        let mat = Matrix::from([1., 2., 3.], 3, 1);
+        assert_eq!(
+            mat,
+            Matrix {
+                data: vec!(1., 2., 3.),
+                cols: 3,
+                rows: 1,
+            }
+        );
+        let mat = Matrix::from([0; 10], 2, 5);
+        assert_eq!(
+            mat,
+            Matrix {
+                data: vec!(0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                cols: 2,
+                rows: 5,
+            }
+        );
+    }
+    #[test]
+    #[should_panic]
+    fn ex00_invalid_constructor() {
+        Matrix::from([0; 10], 20, 5);
+    }
+
+    #[test]
+    fn ex00_test_add() {
+        let a = Vector::from([1; 1]);
+        let b = Vector::from([2; 1]);
+        let mut r = a.clone();
+        assert!(r.add(&b).is_ok());
+        assert_eq!(r, Vector { data: vec!(3) });
+        let a = Matrix::from([1; 10], 2, 5);
+        let b = Matrix::from([2; 10], 2, 5);
+        let mut r = a.clone();
+        assert!(r.add(&b).is_ok());
+        assert_eq!(
+            r,
+            Matrix {
+                data: vec!(3; 10),
+                cols: 2,
+                rows: 5
+            }
+        );
+        let a = Vector::from([1; 10]);
+        let b = Vector::from([2; 15]);
+        let mut r = a.clone();
+        assert!(r.add(&b).is_err());
+        let a = Matrix::from([1; 10], 2, 5);
+        let b = Matrix::from([2; 10], 5, 2);
+        let mut r = a.clone();
+        assert!(r.add(&b).is_err());
+    }
+    #[test]
+    fn ex00_valid_sum() {
+        let a = Vector::from([1; 10]);
+        let b = Vector::from([2; 10]);
+        let mut r = a.clone();
+        assert!(r.sub(&b).is_ok());
+        assert_eq!(r, Vector { data: vec!(-1; 10) });
+        let a = Matrix::from([1; 10], 2, 5);
+        let b = Matrix::from([2; 10], 2, 5);
+        let mut r = a.clone();
+        assert!(r.sub(&b).is_ok());
+        assert_eq!(
+            r,
+            Matrix {
+                data: vec!(-1; 10),
+                cols: 2,
+                rows: 5,
+            }
+        );
+        let a = Vector::from([1; 10]);
+        let b = Vector::from([2; 15]);
+        let mut r = a.clone();
+
+        assert!(r.sub(&b).is_err());
+        let a = Matrix::from([1; 10], 2, 5);
+        let b = Matrix::from([2; 10], 5, 2);
+        let mut r = a.clone();
+        assert!(r.sub(&b).is_err());
+    }
+    #[test]
+    fn ex00_valid_scl() {
+        let scaler: usize = 42;
+        let mut a = Vector::from([1; 10]);
+        assert!(a.scl(scaler).is_ok());
+        assert_eq!(a, Vector { data: vec!(42; 10) });
+        let mut a = Matrix::from([1; 9], 3, 3);
+        assert!(a.scl(scaler).is_ok());
+        assert_eq!(
+            a,
+            Matrix {
+                data: vec!(42; 9),
+                cols: 3,
+                rows: 3,
+            }
+        );
+    }
+
+    #[test]
+    fn ex01_valid_linear() {
+        let e1 = Vector::from([1., 0., 0.]);
+        let e2 = Vector::from([0., 1., 0.]);
+        let e3 = Vector::from([0., 0., 1.]);
+        let v1 = Vector::from([1., 2., 3.]);
+        let v2 = Vector::from([0., 10., -100.]);
+        assert_eq!(
+            Vector {
+                data: vec!(10., -2., 0.5)
+            },
+            linear_combination([e1, e2, e3], [10., -2., 0.5]).unwrap()
+        );
+        assert_eq!(
+            Vector {
+                data: vec!(10., 0., 230.)
+            },
+            linear_combination([v1, v2], [10., -2.]).unwrap()
+        );
+        let e1 = Vector::from([1., 0., 0., 4.]); // Vectors of different shapes
+        let e2 = Vector::from([0., 1., 0.]);
+        let e3 = Vector::from([0., 0., 1.]);
+        assert!(linear_combination([e1, e2, e3], [10., -2., 0.5]).is_err());
+
+        let e1 = Vector::from([1., 0., 0.]); // Scalar list doesnt match number of vectors
+        let e2 = Vector::from([0., 1., 0.]);
+        let e3 = Vector::from([0., 0., 1.]);
+        assert!(linear_combination([e1, e2, e3], [10., -2., 0.5, 3.]).is_err());
+    }
+
+    #[test]
+    fn ex_02_lerp() {
+        let a = Vector::from([1.; 2]);
+        let b = Vector::from([-1.; 2]);
+        let mut mix = 0.5;
+        let res = lerp(&a, &b, mix).unwrap();
+        assert_eq!(res, Vector { data: vec!(0.; 2) });
+        mix = 0.;
+        let res = lerp(&a, &b, mix).unwrap();
+        assert_eq!(res, a);
+        mix = 1.;
+        let res = lerp(&a, &b, mix).unwrap();
+        assert_eq!(res, b);
+
+        let c = Matrix::from([1.; 9], 3, 3);
+        let d = Matrix::from([-1.; 9], 3, 3);
+        let mut mix = 0.5;
+        let res = lerp(&c, &d, mix).unwrap();
+        assert_eq!(
+            res,
+            Matrix {
+                data: vec!(0.; 9),
+                cols: 3,
+                rows: 3
+            }
+        );
+        mix = 0.;
+        let res = lerp(&c, &d, mix).unwrap();
+        assert_eq!(
+            res,
+            Matrix {
+                data: vec!(1.; 9),
+                cols: 3,
+                rows: 3
+            }
+        );
+        mix = 1.;
+        let res = lerp(&c, &d, mix).unwrap();
+        assert_eq!(
+            res,
+            Matrix {
+                data: vec!(-1.; 9),
+                cols: 3,
+                rows: 3
+            }
+        );
+        let a2 = Vector::from([3.; 6]);
+        assert!(lerp(&a, &a2, mix).is_err());
+        let c2 = Matrix::from([3.; 2], 1, 2);
+        assert!(lerp(&c, &c2, mix).is_err());
+    }
+    #[test]
+    fn ex03() {
+        let v1 = Vector::from([0, 1]);
+        let v2 = Vector::from([1, 0]);
+        assert_eq!(dot(&v1, &v2), 0);
+        let v1 = Vector::from([1, 1]);
+        let v2 = Vector::from([-1, 1]);
+        assert_eq!(dot(&v1, &v2), 0);
+        let v1 = Vector::from([1, 1]);
+        let v2 = Vector::from([1, 1]);
+        assert_eq!(dot(&v1, &v2), 2);
+        let v1 = Vector::from([-1, 6]);
+        let v2 = Vector::from([3, 2]);
+        assert_eq!(dot(&v1, &v2), 9);
+    }
+   #[test]
+   fn ex04_
 }
