@@ -199,7 +199,23 @@ impl<T: Scalar> Matrix<T> {
             cols: c,
         }
     }
+    //ex07
+    pub fn mul_vec(&self, vec: &Vector<T>) -> Result<Vector<T>, String> {
+        if self.cols != vec.data.len() {
+            return Err("Matrix size doesnt match vector".into());
+        }
+        let mut res = Vec::<T>::new();
+        for r in 0..self.rows {
+            let mut crr = T::zero();
+            for c in 0..self.cols {
+                crr = crr + self.data[r + c] * vec.data[c];
+            }
+            res.push(crr);
+        }
+        Ok(Vector { data: res })
+    }
 }
+
 impl<T: Scalar> Tensor<T> for Matrix<T> {
     fn check_dim_eq(&self, m: &Matrix<T>) -> Result<(), String> {
         if self.cols != m.cols {
@@ -571,5 +587,13 @@ mod tests {
         let a = Vector::from([1., 0.]);
         let b = Vector::from([0., 1.]);
         assert!(cross_product(&a, &b).is_err());
+    }
+    #[test]
+    fn ex07_cross() {
+        let mat = Matrix::from([1.; 9], 3, 3);
+        let vec = Vector::from([3.; 2]);
+        assert!(mat.mul_vec(&vec).is_err());
+        let vec = Vector::from([3.; 3]);
+        assert_eq!(mat.mul_vec(&vec).unwrap(), Vector { data: vec![9.; 3] });
     }
 }
