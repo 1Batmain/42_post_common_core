@@ -10,7 +10,7 @@ use std::{
 ///////////////////////////////////////////////////
 ///////////////////////////////////////////////////
 
-pub trait Scalar: Float + Copy + Display + Debug + Sum {}
+pub trait Scalar: Float + Copy + Display + Debug + Sum + PartialEq {}
 impl<T: Float + Copy + Display + Debug + Sum> Scalar for T {}
 
 #[derive(Clone, PartialEq, Debug)]
@@ -38,25 +38,6 @@ pub trait Tensor<T> {
 ///////////////////////////////////////////////////
 ///////////////////////////////////////////////////
 
-//ex03
-pub fn dot<T: Scalar>(a: &Vector<T>, b: &Vector<T>) -> T {
-    let a = &a.data;
-    let b = &b.data;
-    assert_eq!(a.len(), b.len(), "The two vectors are not of the same size");
-    a.iter().zip(b.iter()).map(|(a, b)| *a * *b).sum()
-}
-//ex02
-pub fn lerp<T: Scalar, S: Tensor<T>>(a: &S, b: &S, mix: T) -> Result<S, String>
-where
-    S: Clone,
-{
-    let mut res = a.clone();
-    let mut diff = b.clone();
-    diff.sub(a)?;
-    diff.scl(mix)?;
-    res.add(&diff)?;
-    Ok(res)
-}
 //ex01
 pub fn linear_combination<T: Scalar>(
     u: impl AsRef<[Vector<T>]>,
@@ -89,6 +70,51 @@ pub fn linear_combination<T: Scalar>(
         )?
         .ok_or_else(|| "No vector provided".to_string())
 }
+//ex02
+pub fn lerp<T: Scalar, S: Tensor<T>>(a: &S, b: &S, mix: T) -> Result<S, String>
+where
+    S: Clone,
+{
+    let mut res = a.clone();
+    let mut diff = b.clone();
+    diff.sub(a)?;
+    diff.scl(mix)?;
+    res.add(&diff)?;
+    Ok(res)
+}
+//ex03
+pub fn dot<T: Scalar>(a: &Vector<T>, b: &Vector<T>) -> Result<T, String> {
+    let a = &a.data;
+    let b = &b.data;
+    if a.len() != b.len() {
+        return Err("The two vectors are not of the same size".into());
+    };
+    Ok(a.iter().zip(b.iter()).map(|(a, b)| *a * *b).sum())
+}
+//ex05
+pub fn angle_cos<T: Scalar>(a: &Vector<T>, b: &Vector<T>) -> Result<T, String> {
+    let dot = dot(a, b)?;
+    let an = a.norm_2();
+    let bn = b.norm_2();
+    if let (Some(an), Some(bn)) = (an, bn) {
+        Ok(dot / (an * bn))
+    } else {
+        Err("Vectors are either empty or of size 0".into())
+    }
+}
+//ex06
+pub fn cross_product<T: Scalar>(a: &Vector<T>, b: &Vector<T>) -> Result<Vector<T>, String> {
+    if a.data.len() != 3 || b.data.len() != 3 {
+        return Err("vector must be of dimension 3".into());
+    }
+    Ok(Vector {
+        data: vec![
+            a.data[1] * b.data[2] - a.data[2] * b.data[1],
+            a.data[2] * b.data[0] - a.data[0] * b.data[2],
+            a.data[0] * b.data[1] - a.data[1] * b.data[0],
+        ],
+    })
+}
 
 impl<T: Scalar> Vector<T> {
     pub fn from(s: impl AsRef<[T]>) -> Self {
@@ -97,11 +123,37 @@ impl<T: Scalar> Vector<T> {
         }
     }
 
-    pub fn norm_1(&self) -> T {
-        self.data.iter().copied().sum()
+    // ex04
+    pub fn norm_1(&self) -> Option<T> {
+        if self.data.is_empty() {
+            return None;
+        }
+        let result = self.data.iter().copied().sum();
+        (result != T::zero()).then_some(result)
     }
-    pub fn norm_2(&self) -> T {
-        self.data.iter().map(|x| *x * *x).sum::<T>().sqrt()
+    pub fn norm_2(&self) -> Option<T> {
+        if self.data.is_empty() {
+            return None;
+        }
+        let result = self.data.iter().map(|x| *x * *x).sum::<T>().sqrt();
+        (result != T::zero()).then_some(result)
+    }
+    pub fn norm_3(&self) -> Option<T> {
+        if self.data.is_empty() {
+            return None;
+        }
+        let result = self
+            .data
+            .iter()
+            .fold(None, |acc, &x| {
+                let abs = x.abs();
+                match acc {
+                    Some(max) if max >= abs => Some(max),
+                    _ => Some(abs),
+                }
+            })
+            .unwrap();
+        (result != T::zero()).then_some(result)
     }
 }
 impl<T: Scalar> Tensor<T> for Vector<T> {
@@ -225,6 +277,8 @@ mod tests {
 
     #[test]
     fn ex00_valid_constructors() {
+        let empty = Vector::<f32>::from([]);
+        assert!(empty.data.is_empty());
         let vec = Vector::from([1., 2., 3.]);
         assert_eq!(
             vec,
@@ -246,6 +300,9 @@ mod tests {
                 data: vec!(0., 0., 0., 0., 0., 0., 0., 0., 0., 0.)
             }
         );
+        let empty = Matrix::<f32>::from([], 0, 0);
+        assert!(empty.data.is_empty());
+        assert!(empty.cols == 0 && empty.rows == 0);
         let mat = Matrix::from([1., 2., 3.], 1, 3);
         assert_eq!(
             mat,
@@ -448,35 +505,71 @@ mod tests {
     }
     #[test]
     fn ex03() {
+        let vn = Vector::<f32>::from([]);
+        assert_eq!(dot(&vn, &vn), Ok(0.));
         let v1 = Vector::from([0., 1.]);
         let v2 = Vector::from([1., 0.]);
-        assert_eq!(dot(&v1, &v2), 0.);
+        assert_eq!(dot(&v1, &v2), Ok(0.));
         let v1 = Vector::from([1., 1.]);
         let v2 = Vector::from([-1., 1.]);
-        assert_eq!(dot(&v1, &v2), 0.);
+        assert_eq!(dot(&v1, &v2), Ok(0.));
         let v1 = Vector::from([1., 1.]);
         let v2 = Vector::from([1., 1.]);
-        assert_eq!(dot(&v1, &v2), 2.);
+        assert_eq!(dot(&v1, &v2), Ok(2.));
         let v1 = Vector::from([-1., 6.]);
         let v2 = Vector::from([3., 2.]);
-        assert_eq!(dot(&v1, &v2), 9.);
+        assert_eq!(dot(&v1, &v2), Ok(9.));
     }
     #[test]
     fn ex04_norms() {
         let vx = Vector::from([3., 0., 0.]);
         let vy = Vector::from([0., 3., 0.]);
         let vz = Vector::from([0., 0., 3.]);
-        assert_eq!(vx.norm_1(), 3.0);
-        assert_eq!(vy.norm_1(), 3.0);
-        assert_eq!(vz.norm_1(), 3.0);
-        assert_eq!(vx.norm_2(), 3.0);
-        assert_eq!(vy.norm_2(), 3.0);
-        assert_eq!(vz.norm_2(), 3.0);
+        let empty = Vector::<f32>::from([]);
+        let zero = Vector::<f32>::from([0.; 3]);
+        assert!(empty.norm_1().is_none());
+        assert!(empty.norm_2().is_none());
+        assert!(empty.norm_3().is_none());
+        assert!(zero.norm_1().is_none());
+        assert!(zero.norm_2().is_none());
+        assert!(zero.norm_3().is_none());
+        assert_eq!(vx.norm_1(), Some(3.0));
+        assert_eq!(vy.norm_1(), Some(3.0));
+        assert_eq!(vz.norm_1(), Some(3.0));
+        assert_eq!(vx.norm_2(), Some(3.0));
+        assert_eq!(vy.norm_2(), Some(3.0));
+        assert_eq!(vz.norm_2(), Some(3.0));
+        assert_eq!(vx.norm_3(), Some(3.0));
+        assert_eq!(vy.norm_3(), Some(3.0));
+        assert_eq!(vz.norm_3(), Some(3.0));
+        let vecteureu = Vector::from([-20., 10., -3.]);
+        assert_eq!(vecteureu.norm_3(), Some(20.));
         let mut v = vx.clone();
         assert!(v.add(&vy).is_ok());
         assert!(v.add(&vz).is_ok());
-        assert_eq!(v.norm_1(), 9.0);
-        let fixNorm = Vector::from([80198051.0; 3]);
-        assert_eq!(fixNorm.norm_2(), 138907099.0);
+        assert_eq!(v.norm_1(), Some(9.0));
+        let fix_norm = Vector::from([80198051.0; 3]);
+        assert_eq!(fix_norm.norm_2(), Some(138907099.0));
+    }
+    #[test]
+    fn ex05_cos() {
+        let vnull = Vector::from([0.; 3]);
+        let vx = Vector::from([3., 0., 0.]);
+        let vy = Vector::from([0., 3., 0.]);
+        let mut vy_neg = vy.clone();
+        vy_neg.scl(-1.).expect("Scaling error");
+        assert!(angle_cos(&vnull, &vx).is_err());
+        assert_eq!(angle_cos(&vx, &vx), Ok(1.));
+        assert_eq!(angle_cos(&vy, &vy_neg), Ok(-1.));
+    }
+    #[test]
+    fn ex06_cross() {
+        let a = Vector::from([1., 0., 0.]);
+        let b = Vector::from([0., 1., 0.]);
+        let c = Vector::from([0., 0., 1.]);
+        assert_eq!(cross_product(&a, &b).unwrap(), c);
+        let a = Vector::from([1., 0.]);
+        let b = Vector::from([0., 1.]);
+        assert!(cross_product(&a, &b).is_err());
     }
 }
