@@ -208,11 +208,56 @@ impl<T: Scalar> Matrix<T> {
         for r in 0..self.rows {
             let mut crr = T::zero();
             for c in 0..self.cols {
-                crr = crr + self.data[r + c] * vec.data[c];
+                crr = crr + self.data[r * self.cols + c] * vec.data[c];
             }
             res.push(crr);
         }
         Ok(Vector { data: res })
+    }
+    pub fn mul_mat(&self, mat: &Matrix<T>) -> Result<Matrix<T>, String> {
+        if self.cols != mat.rows {
+            return Err("Matrixes dimensions doesnt match".into());
+        }
+        let mut res = Vec::<T>::new();
+        for r in 0..self.rows {
+            for c in 0..mat.cols {
+                let mut crr = T::zero();
+                for k in 0..self.cols {
+                    crr = crr + self.data[r * self.cols + k] * mat.data[k * mat.cols + c];
+                }
+                res.push(crr);
+            }
+        }
+        Ok(Matrix {
+            data: res,
+            rows: self.rows,
+            cols: mat.cols,
+        })
+    }
+    //ex08
+    pub fn trace(&self) -> Result<T, String> {
+        if self.cols != self.rows {
+            return Err("Trace require a square matrix".into());
+        }
+        let mut sum = T::zero();
+        for i in 0..self.rows {
+            sum = sum + self.data[i * self.cols + i];
+        }
+        Ok(sum)
+    }
+    //ex09
+    pub fn transpose(&self) -> Matrix<T> {
+        let mut new = vec![T::zero(); self.cols * self.rows];
+        for r in 0..self.rows {
+            for c in 0..self.cols {
+                new[r + c * self.rows] = self.data[c + r * self.cols];
+            }
+        }
+        Matrix {
+            data: new,
+            cols: self.rows,
+            rows: self.cols,
+        }
     }
 }
 
@@ -588,12 +633,67 @@ mod tests {
         let b = Vector::from([0., 1.]);
         assert!(cross_product(&a, &b).is_err());
     }
+
     #[test]
-    fn ex07_cross() {
+    fn ex07_mul_vec() {
         let mat = Matrix::from([1.; 9], 3, 3);
         let vec = Vector::from([3.; 2]);
         assert!(mat.mul_vec(&vec).is_err());
         let vec = Vector::from([3.; 3]);
         assert_eq!(mat.mul_vec(&vec).unwrap(), Vector { data: vec![9.; 3] });
+        let mat = Matrix::from([1., 2., 3., 4.], 2, 2); // rows=2, cols=2 => [[1,2],[3,4]]
+        let vec = Vector::from([5., 6.]);
+        assert_eq!(
+            mat.mul_vec(&vec).unwrap(),
+            Vector {
+                data: vec![17., 39.]
+            }
+        );
+        let mat = Matrix::from([1., 2., 3.], 3, 1); // rows=1, cols=3 => [[1,2,3]]
+        let vec = Vector::from([4., 5., 6.]);
+        assert_eq!(mat.mul_vec(&vec).unwrap(), Vector { data: vec![32.] });
+
+        let a = Matrix::from([1., 2., 3., 4., 5., 6., 7., 8., 9.], 3, 3);
+        let id = Matrix::from([1., 0., 0., 0., 1., 0., 0., 0., 1.], 3, 3);
+        assert_eq!(a.mul_mat(&id).unwrap(), a.clone());
+        assert_eq!(id.mul_mat(&a).unwrap(), a);
+        let a = Matrix::from([1., 2., 3., 4., 5., 6.], 3, 2); // rows=2 cols=3 => [[1,2,3],[4,5,6]]
+        let b = Matrix::from([7., 8., 9., 10., 11., 12.], 2, 3); // rows=3 cols=2 => [[7,8],[9,10],[11,12]]
+        let c = a.mul_mat(&b).unwrap();
+        assert_eq!(
+            c,
+            Matrix {
+                data: vec!(58., 64., 139., 154.),
+                rows: 2,
+                cols: 2
+            }
+        );
+        let a = Matrix::from([1.; 4], 2, 2);
+        let b = Matrix::from([1.; 6], 2, 3);
+        assert!(a.mul_mat(&b).is_err());
+    }
+    #[test]
+    fn ex08_trace() {
+        // simple 2x2 trace
+        let a = Matrix::from([1., 2., 3., 4.], 2, 2); // rows=2, cols=2 => [[1,2],[3,4]]
+        assert_eq!(a.trace().unwrap(), 5.);
+
+        // non-square matrix should error
+        let b = Matrix::from([1.; 6], 3, 2); // rows=2, cols=3 -> not square
+        assert!(b.trace().is_err());
+    }
+    #[test]
+    fn ex09_transpose() {
+        let mat = Matrix::from(vec![1., 2., 3., 4., 5., 6., 7., 8.], 4, 2);
+        assert_eq!(
+            mat.transpose(),
+            Matrix {
+                data: vec![1., 5., 2., 6., 3., 7., 4., 8.],
+                cols: 2,
+                rows: 4,
+            }
+        );
+        let mat = Matrix::from(vec![1.], 1, 1);
+        assert_eq!(mat.transpose(), mat);
     }
 }
