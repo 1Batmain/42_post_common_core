@@ -10,7 +10,7 @@ use std::{
 ///////////////////////////////////////////////////
 ///////////////////////////////////////////////////
 
-pub trait Scalar: Float + Copy + Display + Debug + Sum + PartialEq {}
+pub trait Scalar: Float + Copy + Display + Debug + Sum + PartialEq + Sized {}
 impl<T: Float + Copy + Display + Debug + Sum> Scalar for T {}
 
 #[derive(Clone, PartialEq, Debug)]
@@ -259,6 +259,51 @@ impl<T: Scalar> Matrix<T> {
             rows: self.cols,
         }
     }
+    //ex10
+    fn swap_rows(&mut self, idx: (usize, usize)) -> Result<(), String> {
+        if idx.0 >= self.rows || idx.1 >= self.rows {
+            return Err(format!("indexes is out of range: {:?} for mat{self}", idx,).to_string());
+        }
+        if idx.0 == idx.1 {
+            return Ok(());
+        }
+        let (r1, r2) = if idx.0 < idx.1 {
+            (idx.0, idx.1)
+        } else {
+            (idx.1, idx.0)
+        };
+        let start1 = r1 * self.cols;
+        let start2 = r2 * self.cols;
+        let (left, right) = self.data.split_at_mut(start2);
+        let row1 = &mut left[start1..start1 + self.cols];
+        let row2 = &mut right[..self.cols];
+        row1.swap_with_slice(row2);
+        Ok(())
+    }
+    fn scale_row(&mut self, idx: usize, scaler: T) -> Result<(), String> {
+        if idx >= self.rows {
+            return Err(format!("indexes is out of range: {:?} for mat{self}", idx,).to_string());
+        } else if scaler == T::zero() {
+            return Err("Scaling by 0".to_string());
+        }
+        for n in 0..self.cols {
+            self.data[idx * self.cols + n] = self.data[idx * self.cols + n] * scaler;
+        }
+        Ok(())
+    }
+
+    fn add_row(&mut self, idx: (usize, usize)) -> Result<(), String> {
+        if idx.0 >= self.rows || idx.1 >= self.rows {
+            return Err(format!("indexes is out of range: {:?} for mat{self}", idx,).to_string());
+        }
+        for n in 0..self.cols {
+            self.data[idx.0 * self.cols + n] =
+                self.data[idx.0 * self.cols + n] + self.data[idx.1 * self.cols + n];
+        }
+        Ok(())
+    }
+
+    pub fn row_echelon(&self) -> Matrix<T> {}
 }
 
 impl<T: Scalar> Tensor<T> for Matrix<T> {
@@ -695,5 +740,65 @@ mod tests {
         );
         let mat = Matrix::from(vec![1.], 1, 1);
         assert_eq!(mat.transpose(), mat);
+    }
+    #[test]
+    fn ex10_rnf() {
+        // Base matrix (3x3):
+        // [1,2,3]
+        // [4,5,6]
+        // [7,8,9]
+        let base = Matrix::from([1., 2., 3., 4., 5., 6., 7., 8., 9.], 3, 3);
+
+        // swap_rows valid
+        let mut m = base.clone();
+        assert!(m.swap_rows((0, 2)).is_ok());
+        assert_eq!(
+            m,
+            Matrix {
+                data: vec![7., 8., 9., 4., 5., 6., 1., 2., 3.],
+                cols: 3,
+                rows: 3
+            }
+        );
+
+        // swap_rows invalid index
+        let mut m = base.clone();
+        assert!(m.swap_rows((0, 3)).is_err());
+
+        // scale_row valid
+        let mut m = base.clone();
+        assert!(m.scale_row(1, 2.).is_ok()); // row [4,5,6] -> [8,10,12]
+        assert_eq!(
+            m,
+            Matrix {
+                data: vec![1., 2., 3., 8., 10., 12., 7., 8., 9.],
+                cols: 3,
+                rows: 3
+            }
+        );
+
+        // scale_row invalid index
+        let mut m = base.clone();
+        assert!(m.scale_row(3, 2.).is_err());
+
+        // scale_row by zero should error
+        let mut m = base.clone();
+        assert!(m.scale_row(1, 0.).is_err());
+
+        // add_row valid: row0 += row2 => [1,2,3] + [7,8,9] = [8,10,12]
+        let mut m = base.clone();
+        assert!(m.add_row((0, 2)).is_ok());
+        assert_eq!(
+            m,
+            Matrix {
+                data: vec![8., 10., 12., 4., 5., 6., 7., 8., 9.],
+                cols: 3,
+                rows: 3
+            }
+        );
+
+        // add_row invalid index
+        let mut m = base;
+        assert!(m.add_row((1, 3)).is_err());
     }
 }
