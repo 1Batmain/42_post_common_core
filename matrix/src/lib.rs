@@ -292,18 +292,66 @@ impl<T: Scalar> Matrix<T> {
         Ok(())
     }
 
-    fn add_row(&mut self, idx: (usize, usize)) -> Result<(), String> {
+    fn add_row(&mut self, idx: (usize, usize), factor: T) -> Result<(), String> {
         if idx.0 >= self.rows || idx.1 >= self.rows {
             return Err(format!("indexes is out of range: {:?} for mat{self}", idx,).to_string());
         }
         for n in 0..self.cols {
             self.data[idx.0 * self.cols + n] =
-                self.data[idx.0 * self.cols + n] + self.data[idx.1 * self.cols + n];
+                self.data[idx.0 * self.cols + n] + self.data[idx.1 * self.cols + n] * factor;
         }
         Ok(())
     }
 
-    pub fn row_echelon(&self) -> Matrix<T> {}
+    pub fn row_echelon(&mut self) -> &Matrix<T> {
+        macro_rules! at {
+            ($r: expr, $c: expr) => {
+                self.data[$r * self.cols + $c]
+            };
+        }
+        let (mut r, mut c): (usize, usize) = (0, 0);
+        let data = &mut self.data;
+        let mut pivot_start = 0;
+        'main: loop {
+            if at!(r, c) == T::zero() && c == r + pivot_start {
+                let (mut r1, mut c1) = (r + 1, c);
+                'rows: loop {
+                    c1 = c;
+                    if at!(r1, c1) != T::zero() {
+                        loop {
+                            if c1 > 0 && at!(r1, c1 - 1) != T::zero() {
+                                break;
+                            } else if c1 == 1 {
+                                self.scale_row(r1, T::one() / at!(r1, c)).unwrap();
+                                self.swap_rows((r, r1)).unwrap();
+                                break 'rows;
+                            }
+                            c1 -= 1;
+                        }
+                    }
+                    if r1 < self.rows - 1 {
+                        r1 += 1;
+                    } else {
+                        pivot_start += 1;
+                        break;
+                    }
+                }
+            } else if at!(r, c) != T::zero() && r > c + pivot_start {
+                let r_to_cancel = c - pivot_start;
+                self.add_row((r, r_to_cancel), -at!(r, c)).unwrap()
+            }
+            if c == r + pivot_start && at!(r, c) == T::one() {
+                r += 1;
+            } else if c <= self.cols {
+                c += 1;
+            } else if c < self.cols - 1 && r == self.rows - 1 {
+                c += 1;
+                r = c + pivot_start;
+            } else {
+                return self;
+            }
+        }
+    }
 }
 
 impl<T: Scalar> Tensor<T> for Matrix<T> {
@@ -787,7 +835,7 @@ mod tests {
 
         // add_row valid: row0 += row2 => [1,2,3] + [7,8,9] = [8,10,12]
         let mut m = base.clone();
-        assert!(m.add_row((0, 2)).is_ok());
+        assert!(m.add_row((0, 2), 1.).is_ok());
         assert_eq!(
             m,
             Matrix {
@@ -799,6 +847,6 @@ mod tests {
 
         // add_row invalid index
         let mut m = base;
-        assert!(m.add_row((1, 3)).is_err());
+        assert!(m.add_row((1, 3), 1.).is_err());
     }
 }
