@@ -5,3 +5,19 @@ edition = "2024"
 
 [dependencies]
 num-traits = "0.2.19"
+
+[workspace]
+members = [
+    ".",
+    "ex00",
+    "ex01",
+    "ex02",
+    "ex03",
+    "ex04",
+    "ex05",
+    "ex06",
+    "ex07",
+    "ex08",
+    "ex09",
+    "ex10",
+]

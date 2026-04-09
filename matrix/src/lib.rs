@@ -313,7 +313,7 @@ impl<T: Scalar> Matrix<T> {
         let data = &mut self.data;
         let mut pivot_start = 0;
         'main: loop {
-            if at!(r, c) == T::zero() && c == r + pivot_start {
+            if at!(r, c) == T::zero() && c == r + pivot_start && r < self.cols - 1 {
                 let (mut r1, mut c1) = (r + 1, c);
                 'rows: loop {
                     c1 = c;
@@ -331,22 +331,32 @@ impl<T: Scalar> Matrix<T> {
                     }
                     if r1 < self.rows - 1 {
                         r1 += 1;
-                    } else {
+                    } else if r == 0 {
                         pivot_start += 1;
+                        break;
+                    } else {
                         break;
                     }
                 }
-            } else if at!(r, c) != T::zero() && r > c + pivot_start {
-                let r_to_cancel = c - pivot_start;
-                self.add_row((r, r_to_cancel), -at!(r, c)).unwrap()
+            } else if at!(r, c) != T::zero() {
+                if r > c + pivot_start {
+                    let r_to_cancel = c - pivot_start;
+                    self.add_row((r, r_to_cancel), -at!(r, c)).unwrap()
+                } else if at!(r, c) != T::one() {
+                    self.scale_row(r, T::one() / at!(r, c)).unwrap()
+                }
             }
-            if c == r + pivot_start && at!(r, c) == T::one() {
-                r += 1;
-            } else if c <= self.cols {
+            /*else if c <= self.cols {
                 c += 1;
+            } */
+            if c < pivot_start {
+                r = 0;
+                c = pivot_start;
             } else if c < self.cols - 1 && r == self.rows - 1 {
                 c += 1;
-                r = c + pivot_start;
+                r = c - pivot_start;
+            } else if r < self.rows - 1 {
+                r += 1;
             } else {
                 return self;
             }
@@ -790,7 +800,7 @@ mod tests {
         assert_eq!(mat.transpose(), mat);
     }
     #[test]
-    fn ex10_rnf() {
+    fn ex10_row_operations() {
         // Base matrix (3x3):
         // [1,2,3]
         // [4,5,6]
@@ -848,5 +858,51 @@ mod tests {
         // add_row invalid index
         let mut m = base;
         assert!(m.add_row((1, 3), 1.).is_err());
+    }
+    #[test]
+    fn ex10_row_echelon() {
+        // IDENTITY MATRIX
+        let mut m = Matrix {
+            data: vec![1., 0., 0., 0., 01., 00., 0., 0., 1.],
+            cols: 3,
+            rows: 3,
+        };
+        let expected = m.clone();
+        m.row_echelon();
+        assert_eq!(m, expected);
+        // SAME BUT TRANSLATE BY 1 COLUMN
+        let mut m = Matrix {
+            data: vec![
+                0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1.,
+            ],
+            cols: 4,
+            rows: 4,
+        };
+        let mut expected = Matrix {
+            data: vec![
+                0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0.,
+            ],
+            cols: 4,
+            rows: 4,
+        };
+        m.row_echelon();
+        assert_eq!(m, expected);
+        // empty column
+        let mut m = Matrix {
+            data: vec![
+                0., 0., 0., 0., 0., 5., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
+            ],
+            cols: 4,
+            rows: 4,
+        };
+        let mut expected = Matrix {
+            data: vec![
+                0., 1., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0.,
+            ],
+            cols: 4,
+            rows: 4,
+        };
+        m.row_echelon();
+        assert_eq!(m, expected);
     }
 }
