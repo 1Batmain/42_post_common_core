@@ -346,9 +346,6 @@ impl<T: Scalar> Matrix<T> {
                     self.scale_row(r, T::one() / at!(r, c)).unwrap()
                 }
             }
-            /*else if c <= self.cols {
-                c += 1;
-            } */
             if c < pivot_start {
                 r = 0;
                 c = pivot_start;
