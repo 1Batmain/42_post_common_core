@@ -310,50 +310,55 @@ impl<T: Scalar> Matrix<T> {
             };
         }
         let (mut r, mut c): (usize, usize) = (0, 0);
-        let data = &mut self.data;
-        let mut pivot_start = 0;
-        'main: loop {
-            if at!(r, c) == T::zero() && c == r + pivot_start && r < self.cols - 1 {
-                let (mut r1, mut c1) = (r + 1, c);
-                'rows: loop {
-                    c1 = c;
-                    if at!(r1, c1) != T::zero() {
-                        loop {
-                            if c1 > 0 && at!(r1, c1 - 1) != T::zero() {
-                                break;
-                            } else if c1 == 1 {
-                                self.scale_row(r1, T::one() / at!(r1, c)).unwrap();
-                                self.swap_rows((r, r1)).unwrap();
-                                break 'rows;
+        let mut next_pivot = (0, 0);
+        loop {
+            if r < next_pivot.0 && c < next_pivot.1 {
+                continue;
+            }
+            // find best pivots
+            if at!(r, c) == T::zero() {
+                let mut r1 = r + 1;
+                'rows_bellow: loop {
+                    let mut c1 = c;
+                    if (r1, c1) <= (self.rows, self.cols) {
+                        if at!(r1, c1) != T::zero() {
+                            'cols_back: loop {
+                                if c1 == 0 {
+                                    self.scale_row(r1, T::one() / at!(r1, c)).unwrap();
+                                    self.swap_rows((r, r1)).unwrap();
+                                    next_pivot = (r + 1, c + 1);
+                                    break 'rows_bellow;
+                                }
+                                c1 -= 1;
+                                if at!(r1, c1) != T::zero() {
+                                    break 'cols_back;
+                                }
                             }
-                            c1 -= 1;
+                        }
+                        if r1 < self.rows - 1 {
+                            r1 += 1;
+                        } else {
+                            break 'rows_bellow;
                         }
                     }
-                    if r1 < self.rows - 1 {
-                        r1 += 1;
-                    } else if r == 0 {
-                        pivot_start += 1;
-                        break;
-                    } else {
-                        break;
-                    }
                 }
-            } else if at!(r, c) != T::zero() {
-                if r > c + pivot_start {
-                    let r_to_cancel = c - pivot_start;
-                    self.add_row((r, r_to_cancel), -at!(r, c)).unwrap()
+            } else {
+                // handle scaling and adding
+                if r > next_pivot.0 && c == next_pivot.1 {
+                    self.add_row((r, next_pivot.0), -at!(r, c)).unwrap()
                 } else if at!(r, c) != T::one() {
-                    self.scale_row(r, T::one() / at!(r, c)).unwrap()
+                    self.scale_row(r, T::one() / at!(r, c)).unwrap();
+                    next_pivot = (r, c);
+                } else if (r, c) == next_pivot {
+                    next_pivot = (r + 1, c + 1);
                 }
             }
-            if c < pivot_start {
-                r = 0;
-                c = pivot_start;
-            } else if c < self.cols - 1 && r == self.rows - 1 {
-                c += 1;
-                r = c - pivot_start;
-            } else if r < self.rows - 1 {
+            // update iterators
+            if r < self.rows - 1 {
                 r += 1;
+            } else if c < self.cols - 1 {
+                r = next_pivot.0;
+                c = next_pivot.1;
             } else {
                 return self;
             }

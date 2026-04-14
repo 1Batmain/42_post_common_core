@@ -15,9 +15,9 @@ fn main() {
         0., 0., 0., 1.,
     ], 4, 4);
     let mut res = mat.clone();
-    res.row_echelon();
     println!("\n{}", "Test 1: identity matrix".bold().blue());
     println!("original:\n{}", mat);
+    res.row_echelon();
     println!("REF:\n{}", res);
     #[rustfmt::skip]
     let mat = Matrix::from(vec![
@@ -27,9 +27,9 @@ fn main() {
         0., 0., 0., 0.,
     ], 4, 4);
     let mut res = mat.clone();
-    res.row_echelon();
     println!("\n{}", "Test 1: identity matrix".bold().blue());
     println!("original:\n{}", mat);
+    res.row_echelon();
     println!("REF:\n{}", res);
     #[rustfmt::skip]
     let mat = Matrix::from(vec![
@@ -39,9 +39,9 @@ fn main() {
         0., 0., 0., -11.,
     ], 4, 4);
     let mut res = mat.clone();
-    res.row_echelon();
     println!("\n{}", "Test 1: identity matrix".bold().blue());
     println!("original:\n{}", mat);
+    res.row_echelon();
     println!("REF:\n{}", res);
     #[rustfmt::skip]
     let mat = Matrix::from(vec![
@@ -80,8 +80,8 @@ fn main() {
         ],
         5,3);
     let mut res = mat.clone();
-    res.row_echelon();
     println!("\n{}", "Test 1: 2xi2 matrix".bold().blue());
     println!("original:\n{}", mat);
+    res.row_echelon();
     println!("REF:\n{}", res);
 }
