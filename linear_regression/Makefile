@@ -1,16 +1,12 @@
 NAMES := predict train precision_bonus
 
-export RUST_FONTCONFIG_DLOPEN=1
 
-export PATH := $(PWD)/.cargo/bin:$(PATH)
+all : .cargo
+	$(MAKE) $(NAMES)
 
-all : | .cargo
-	@$(MAKE) $(NAMES)
-
-
-
-.cargo :
-	curl https://sh.rustup.rs -sSf | RUSTUP_HOME=./.rustup CARGO_HOME=./.cargo sh -s -- -y --no-modify-path --default-toolchain stable --profile minimal 2> /dev/null
+.cargo:
+	@echo -e "\nplease run the following command\n\t./installrustup.sh"
+	@exit 1
 
 predict predict/: bin_predict
 train train/: bin_train
@@ -43,4 +39,4 @@ fclean : clean
 re : fclean all
 
 .PHONY: clean fclean
-.IGNORE: clean fclean $(addprefix bin_, $(NAMES)) .cargo
+.IGNORE: clean fclean $(addprefix bin_, $(NAMES))
