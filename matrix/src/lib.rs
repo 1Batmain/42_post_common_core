@@ -18,7 +18,7 @@ pub struct Vector<T> {
     data: Vec<T>,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Default)]
 pub struct Matrix<T> {
     data: Vec<T>,
     rows: usize,
@@ -187,6 +187,18 @@ impl<T: Scalar> Tensor<T> for Vector<T> {
 }
 
 impl<T: Scalar> Matrix<T> {
+    pub fn identity(c: usize, r: usize) -> Self {
+        let mut vec: Vec<T> = Vec::with_capacity(c * r);
+        for c in 0..c {
+            vec[c * c + c] = T::one();
+        }
+
+        Matrix {
+            data: vec,
+            rows: r,
+            cols: c,
+        }
+    }
     pub fn from(s: impl AsRef<[T]>, c: usize, r: usize) -> Self {
         assert_eq!(
             s.as_ref().len(),
@@ -280,6 +292,7 @@ impl<T: Scalar> Matrix<T> {
         row1.swap_with_slice(row2);
         Ok(())
     }
+
     fn scale_row(&mut self, idx: usize, scaler: T) -> Result<(), String> {
         if idx >= self.rows {
             return Err(format!("indexes is out of range: {:?} for mat{self}", idx,).to_string());
@@ -303,66 +316,109 @@ impl<T: Scalar> Matrix<T> {
         Ok(())
     }
 
-    pub fn row_echelon(&mut self) -> &Matrix<T> {
+    pub fn row_echelon(&mut self) -> i32 {
         macro_rules! at {
             ($r: expr, $c: expr) => {
                 self.data[$r * self.cols + $c]
             };
         }
-        let (mut r, mut c): (usize, usize) = (0, 0);
-        let mut next_pivot = (0, 0);
-        loop {
-            if r < next_pivot.0 && c < next_pivot.1 {
-                continue;
-            }
-            // find best pivots
-            if at!(r, c) == T::zero() {
-                let mut r1 = r + 1;
-                'rows_bellow: loop {
-                    let mut c1 = c;
-                    if (r1, c1) <= (self.rows, self.cols) {
-                        if at!(r1, c1) != T::zero() {
-                            'cols_back: loop {
-                                if c1 == 0 {
-                                    self.scale_row(r1, T::one() / at!(r1, c)).unwrap();
-                                    self.swap_rows((r, r1)).unwrap();
-                                    next_pivot = (r + 1, c + 1);
-                                    break 'rows_bellow;
-                                }
-                                c1 -= 1;
-                                if at!(r1, c1) != T::zero() {
-                                    break 'cols_back;
-                                }
-                            }
-                        }
-                        if r1 < self.rows - 1 {
-                            r1 += 1;
-                        } else {
-                            break 'rows_bellow;
-                        }
+        let mut r_start = 0;
+        let mut swap_count = 0;
+        for c in 0..self.cols {
+            let mut pivot: Option<usize> = None;
+            for r in r_start..self.rows {
+                if at!(r, c) == T::zero() {
+                    if r <= self.rows - 2 && pivot.is_none() {
+                        self.swap_rows((r, r + 1)).expect("swap rows error");
+                        swap_count += 1;
                     }
+                    continue;
                 }
-            } else {
-                // handle scaling and adding
-                if r > next_pivot.0 && c == next_pivot.1 {
-                    self.add_row((r, next_pivot.0), -at!(r, c)).unwrap()
-                } else if at!(r, c) != T::one() {
-                    self.scale_row(r, T::one() / at!(r, c)).unwrap();
-                    next_pivot = (r, c);
-                } else if (r, c) == next_pivot {
-                    next_pivot = (r + 1, c + 1);
+                if let Some(pivot) = pivot {
+                    self.add_row((r, pivot), -at!(r, c) / at!(pivot, c))
+                        .expect("add row error");
+                } else {
+                    pivot = Some(r);
+                    r_start += 1;
                 }
-            }
-            // update iterators
-            if r < self.rows - 1 {
-                r += 1;
-            } else if c < self.cols - 1 {
-                r = next_pivot.0;
-                c = next_pivot.1;
-            } else {
-                return self;
             }
         }
+        swap_count
+    }
+    pub fn reduced_row_echelon(&mut self) -> i32 {
+        macro_rules! at {
+            ($r: expr, $c: expr) => {
+                self.data[$r * self.cols + $c]
+            };
+        }
+        let mut r_start = 0;
+        let mut swap_count = 0;
+        for c in 0..self.cols {
+            let mut pivot: Option<usize> = None;
+            for r in r_start..self.rows {
+                if at!(r, c) == T::zero() {
+                    if r <= self.rows - 2 && pivot.is_none() {
+                        if at!(r + 1, c) != T::zero() {
+                            self.scale_row(r + 1, T::one() / at!(r + 1, c))
+                                .expect("scale row error");
+                        }
+                        self.swap_rows((r, r + 1)).expect("swap rows error");
+                        swap_count += 1;
+                    }
+                    continue;
+                }
+                if let Some(pivot) = pivot {
+                    self.add_row((r, pivot), -at!(r, c)).expect("add row error");
+                } else {
+                    self.scale_row(r, T::one() / at!(r, c))
+                        .expect("scale row error");
+                    pivot = Some(r);
+                    r_start += 1;
+                }
+            }
+        }
+        swap_count
+    }
+    pub fn determinant(&self) -> Result<f32, String> {
+        if self.cols != self.rows {
+            return Err("Ta pas capte, c pas carré".to_string());
+        }
+        let mut mat = self.clone();
+        let swap = mat.row_echelon();
+        let mut result = if swap % 2 != 0 { -1.0_f32 } else { 1.0_f32 };
+        for i in 0..self.cols {
+            if mat.data[i * mat.cols + i] == T::zero() {
+                return Ok(0.);
+            }
+            result = result * mat.data[i * mat.cols + i].to_f32().unwrap();
+        }
+        Ok(result)
+    }
+    pub fn augment(&mut self, augment: &mut Matrix<T>) -> Result<(), String> {
+        if self.rows != augment.rows {
+            return Err("Both matrix must have the same row numbers to be augmented".to_string());
+        }
+        let mut data: Vec<T> = Vec::with_capacity((self.cols + augment.cols) * self.rows);
+        for r in 0..self.rows {
+            for c in 0..self.cols {
+                data.push(self.data[r * self.cols + c]);
+            }
+            for c in 0..augment.cols {
+                data.push(self.data[r * augment.cols + c]);
+            }
+        }
+        self.data = data;
+        self.cols = self.cols + augment.cols;
+        Ok(())
+    }
+    pub fn inverse(&mut self) -> Result<(), String> {
+        if self.rows != self.cols {
+            return Err("Matrix must be squared to be inversed.".to_string());
+        }
+        let mut identity: Matrix<T> = Matrix::identity(self.cols, self.rows);
+        self.augment(&mut identity)?;
+
+        Ok(())
     }
 }
 
@@ -863,7 +919,7 @@ mod tests {
     }
     #[test]
     fn ex10_row_echelon() {
-        // IDENTITY MATRIX
+        // IDENTITY MATRIX - should remain unchanged for row_echelon
         let mut m = Matrix {
             data: vec![1., 0., 0., 0., 01., 00., 0., 0., 1.],
             cols: 3,
@@ -872,7 +928,18 @@ mod tests {
         let expected = m.clone();
         m.row_echelon();
         assert_eq!(m, expected);
-        // SAME BUT TRANSLATE BY 1 COLUMN
+
+        // Test reduced_row_echelon on identity matrix
+        let mut m = Matrix {
+            data: vec![1., 0., 0., 0., 01., 00., 0., 0., 1.],
+            cols: 3,
+            rows: 3,
+        };
+        let expected = m.clone();
+        m.reduced_row_echelon();
+        assert_eq!(m, expected);
+
+        // SAME BUT TRANSLATE BY 1 COLUMN - row_echelon form
         let mut m = Matrix {
             data: vec![
                 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1.,
@@ -880,7 +947,7 @@ mod tests {
             cols: 4,
             rows: 4,
         };
-        let mut expected = Matrix {
+        let expected = Matrix {
             data: vec![
                 0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0.,
             ],
@@ -889,7 +956,26 @@ mod tests {
         };
         m.row_echelon();
         assert_eq!(m, expected);
-        // empty column
+
+        // Test reduced_row_echelon on same matrix
+        let mut m = Matrix {
+            data: vec![
+                0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1.,
+            ],
+            cols: 4,
+            rows: 4,
+        };
+        let expected = Matrix {
+            data: vec![
+                0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0.,
+            ],
+            cols: 4,
+            rows: 4,
+        };
+        m.reduced_row_echelon();
+        assert_eq!(m, expected);
+
+        // empty column - row_echelon form (keeps pivot as 5)
         let mut m = Matrix {
             data: vec![
                 0., 0., 0., 0., 0., 5., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
@@ -897,14 +983,92 @@ mod tests {
             cols: 4,
             rows: 4,
         };
-        let mut expected = Matrix {
+        let expected = Matrix {
             data: vec![
-                0., 1., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0.,
+                0., 5., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0.,
             ],
             cols: 4,
             rows: 4,
         };
         m.row_echelon();
         assert_eq!(m, expected);
+
+        // Test reduced_row_echelon on same matrix
+        let mut m = Matrix {
+            data: vec![
+                0., 0., 0., 0., 0., 5., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
+            ],
+            cols: 4,
+            rows: 4,
+        };
+        let expected = Matrix {
+            data: vec![
+                0., 1., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0.,
+            ],
+            cols: 4,
+            rows: 4,
+        };
+        m.reduced_row_echelon();
+        assert_eq!(m, expected);
+    }
+
+    #[test]
+    fn ex11_determinant() {
+        // Test identity matrix (determinant = 1)
+        let mat = Matrix::from(
+            vec![
+                1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1.,
+            ],
+            4,
+            4,
+        );
+        assert_eq!(mat.determinant(), Ok(1.0));
+
+        // Test singular matrix with zero row (determinant = 0)
+        let mat = Matrix::from(
+            vec![
+                1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0.,
+            ],
+            4,
+            4,
+        );
+        assert_eq!(mat.determinant(), Ok(0.0));
+
+        // Test matrix with specific values
+        let mat = Matrix::from(
+            vec![
+                0., 0., 0., 0., 0., 5., 0., 0., 0., 0., 0., 0., 0., 0., 0., -11.,
+            ],
+            4,
+            4,
+        );
+        assert_eq!(mat.determinant(), Ok(0.0));
+
+        // Test 3x3 matrix
+        let mat = Matrix::from(vec![78., 88., -23., 21., 11., 5., 652., 0., 13.], 3, 3);
+        let expected_det = 78.0 * (11.0 * 13.0 - 5.0 * 0.0) - 88.0 * (21.0 * 13.0 - 5.0 * 652.0)
+            + (-23.0) * (21.0 * 0.0 - 11.0 * 652.0);
+        assert_eq!(mat.determinant(), Ok(expected_det));
+
+        // Test non-square matrix (should return error)
+        let mat = Matrix::from(
+            vec![
+                1., 2., 3., 4., 28., 4., 2.5, 20., 4., -4., 8., 5., 1., 4., 17.,
+            ],
+            5,
+            3,
+        );
+        assert!(mat.determinant().is_err());
+    }
+    #[test]
+    fn ex12_inverse() {
+        assert_eq!(
+            Matrix::identity(2, 2),
+            Matrix {
+                data: vec![1., 0., 0., 1.],
+                cols: 2,
+                rows: 2,
+            }
+        );
     }
 }

@@ -8,12 +8,28 @@ fn main() {
     );
 
     #[rustfmt::skip]
+    let mat = Matrix::<f32>::default();
+    let mut res = mat.clone();
+    println!("\n{}", "Test 1: identity matrix".bold().blue());
+    println!("original:\n{}", mat);
+    res.row_echelon();
+    println!("REF:\n{}", res);
+    #[rustfmt::skip]
     let mat = Matrix::from(vec![
         1., 0., 0., 0.,
         0., 1., 0., 0.,
         0., 0., 1., 0.,
         0., 0., 0., 1.,
     ], 4, 4);
+    let mut res = mat.clone();
+    println!("\n{}", "Test 1: identity matrix".bold().blue());
+    println!("original:\n{}", mat);
+    res.row_echelon();
+    println!("REF:\n{}", res);
+    #[rustfmt::skip]
+    let mat = Matrix::from(vec![
+        1930., 0., 0., 0.,
+    ], 4, 1);
     let mut res = mat.clone();
     println!("\n{}", "Test 1: identity matrix".bold().blue());
     println!("original:\n{}", mat);

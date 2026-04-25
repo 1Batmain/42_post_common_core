@@ -1,0 +1,8 @@
+[package]
+name = "ex11"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+matrix = {path="../"}
+colored = "3.1.1"
