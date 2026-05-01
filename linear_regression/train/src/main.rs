@@ -48,7 +48,7 @@ fn train(data: &[Field]) -> Model {
                     .map(|f| predict(f.km, &model) - f.price)
                     .sum::<f32>()
                 / data.len() as f32;
-        let theta1_tmp:f32 = model.theta1
+        let theta1_tmp: f32 = model.theta1
             - learning_rate
                 * data
                     .iter()
@@ -102,12 +102,17 @@ fn draw(data: &[Field], model: &Model, path: &str) -> Result<(), Box<dyn Error>>
         Circle::new((x, y), 5, BLUE.filled())
     }))?;
 
-    let line_points: Vec<(f32, f32)> = (0..=100)
-        .map(|i| {
-            let x = km_min + (km_max - km_min) * (i as f32 / 100.0);
-            (x, predict(x as f32, model))
-        })
-        .collect();
+    let line_points: Vec<(f32, f32)> = vec![
+        (min_km, predict(km_min, model)),
+        (max_km, predict(km_max, model)),
+    ];
+
+    // let line_points: Vec<(f32, f32)> = (0..=100)
+    //     .map(|i| {
+    //         let x = km_min + (km_max - km_min) * (i as f32 / 100.0);
+    //         (x, predict(x as f32, model))
+    //     })
+    //     .collect();
 
     chart
         .draw_series(LineSeries::new(line_points, RED))?

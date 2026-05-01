@@ -1,25 +1,22 @@
 NAMES := predict train precision_bonus
 
 
-all : .cargo
+all : 
 	$(MAKE) $(NAMES)
 
-.cargo:
-	@echo -e "\nplease run the following command\n\t./installrustup.sh"
-	@exit 1
 
 predict predict/: bin_predict
 train train/: bin_train
 precision_bonus precision_bonus/: bin_precision_bonus
 
 bin_train: train/src/main.rs shared_lib/src/lib.rs
-	cargo build -r --bin train
+	docker run -it -v $$(pwd):/app -w /app  rust cargo build --release --bin train
 	@ln -sf target/release/train $@ 2> /dev/null
 bin_predict: predict/src/main.rs shared_lib/src/lib.rs
-	cargo build -r --bin predict
+	docker run -it -v $$(pwd):/app -w /app rust   cargo build --release --bin predict
 	@ln -sf target/release/predict $@ 2> /dev/null
 bin_precision_bonus: precision_bonus/src/main.rs shared_lib/src/lib.rs
-	cargo build -r --bin precision_bonus
+	docker run -it -v $$(pwd):/app -w /app   rust cargo build --release --bin precision_bonus
 	@ln -sf target/release/precision_bonus $@ 2> /dev/null
 
 clean :
@@ -28,13 +25,7 @@ clean :
 
 
 fclean : clean
-	cargo clean
-	@rm $(addprefix bin_, $(NAMES)) 2>/dev/null
-	@read -p "delete cargo too ? y / [n] : " answer; \
-	if [ "$$answer" == "y" ]; then \
-		echo "deleting cargo..."; \
-	    rm -rf ./.cargo ./.rustup; \
-	fi
+	@rm -rf $(addprefix bin_, $(NAMES)) target 2>/dev/null
 
 re : fclean all
 
