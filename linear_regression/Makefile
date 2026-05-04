@@ -1,13 +1,13 @@
 NAMES := predict train precision_bonus
 
 
-all : 
+all :
 	$(MAKE) $(NAMES)
 
 
-predict predict/: bin_predict
-train train/: bin_train
-precision_bonus precision_bonus/: bin_precision_bonus
+predict predict: bin_predict
+train train: bin_train
+precision_bonus: bin_precision_bonus
 
 bin_train: train/src/main.rs shared_lib/src/lib.rs
 	docker run -it -v $$(pwd):/app -w /app  rust cargo build --release --bin train
@@ -20,9 +20,9 @@ bin_precision_bonus: precision_bonus/src/main.rs shared_lib/src/lib.rs
 	@ln -sf target/release/precision_bonus $@ 2> /dev/null
 
 clean :
-	rm -rf target/release/build/ 2>/dev/null
-	$(shell rm data/{model.png,model.json})
-
+	@rm -rf target/release/build/ 2>/dev/null
+	@bash -c 'rm data/model{.png,.json}'
+	@bash -c 'rm $(addprefix bin_, $(NAMES))'
 
 fclean : clean
 	@rm -rf $(addprefix bin_, $(NAMES)) target 2>/dev/null
@@ -30,4 +30,4 @@ fclean : clean
 re : fclean all
 
 .PHONY: clean fclean
-.IGNORE: clean fclean $(addprefix bin_, $(NAMES))
+.IGNORE: clean fclean 

@@ -1,3 +1,4 @@
+
 use colored::Colorize;
 use plotters::prelude::*;
 use plotters::series::LineSeries;
