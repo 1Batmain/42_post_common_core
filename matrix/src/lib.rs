@@ -18,7 +18,7 @@ pub struct Vector<T> {
     data: Vec<T>,
 }
 
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Default)]
 pub struct Matrix<T> {
     data: Vec<T>,
     rows: usize,
@@ -188,9 +188,9 @@ impl<T: Scalar> Tensor<T> for Vector<T> {
 
 impl<T: Scalar> Matrix<T> {
     pub fn identity(c: usize, r: usize) -> Self {
-        let mut vec: Vec<T> = Vec::with_capacity(c * r);
+        let mut vec: Vec<T> = vec![T::zero(); c * r];
         for c in 0..c {
-            vec[c * c + c] = T::one();
+            vec[c * r + c] = T::one();
         }
 
         Matrix {
@@ -394,29 +394,83 @@ impl<T: Scalar> Matrix<T> {
         }
         Ok(result)
     }
-    pub fn augment(&mut self, augment: &mut Matrix<T>) -> Result<(), String> {
+    pub fn augment(&mut self, augment: Matrix<T>) -> Result<(), String> {
         if self.rows != augment.rows {
             return Err("Both matrix must have the same row numbers to be augmented".to_string());
         }
         let mut data: Vec<T> = Vec::with_capacity((self.cols + augment.cols) * self.rows);
+        let cols = self.cols + augment.cols;
         for r in 0..self.rows {
             for c in 0..self.cols {
                 data.push(self.data[r * self.cols + c]);
             }
             for c in 0..augment.cols {
-                data.push(self.data[r * augment.cols + c]);
+                data.push(augment.data[r * augment.cols + c]);
             }
         }
         self.data = data;
-        self.cols = self.cols + augment.cols;
+        self.cols = cols;
         Ok(())
     }
+    pub fn plu(&self) -> Result<(Matrix<T>, Matrix<T>, Matrix<T>), String> {
+        if self.cols != self.rows {
+            return Err("matrice isnt square".to_string());
+        }
+        let mut p = Matrix::identity(self.cols, self.rows);
+        let mut l = Matrix::identity(self.cols, self.rows);
+        let mut u = self.clone();
+
+        macro_rules! at {
+            ($r: expr, $c: expr) => {
+                u.data[$r * u.cols + $c]
+            };
+        }
+        let mut r_start = 0;
+        for c in 0..u.cols {
+            let mut pivot: Option<usize> = None;
+            for r in r_start..u.rows {
+                if at!(r, c) == T::zero() {
+                    if r <= u.rows - 2 && pivot.is_none() {
+                        u.swap_rows((r, r + 1)).expect("swap rows error");
+                        //Register swap in pivot Matrix
+                        l.swap_rows((r, r + 1)).expect("swap rows error");
+                    }
+                    continue;
+                }
+                if let Some(pivot) = pivot {
+                    let scaler = at!(r, c) / at!(pivot, c);
+                    u.add_row((r, pivot), -scaler).expect("add row error");
+                    // register scale in lower matrix
+                    l.data[r * u.cols + c] = scaler;
+                } else {
+                    pivot = Some(r);
+                    r_start += 1;
+                }
+            }
+        }
+        Ok((p, l, u))
+    }
+
+    pub fn solve(&self, &result: Matrix<T>) -> Result<Matrix<T>, String> {
+        if self.cols != result.rows {
+            return Err("Matrix dimensions does not match expected result".to_string());
+        }
+        let mut solution = Matrix::from(vec![0.; self.rows * self.cols], self.cols, self.rows);
+
+        for c in 0..solution.cols {
+            for r in 0..solution.rows {
+                
+            }
+        }
+        Ok(solution)
+    }
+
     pub fn inverse(&mut self) -> Result<(), String> {
         if self.rows != self.cols {
             return Err("Matrix must be squared to be inversed.".to_string());
         }
-        let mut identity: Matrix<T> = Matrix::identity(self.cols, self.rows);
-        self.augment(&mut identity)?;
+        let (p, l, u) = self.plu().expect("plu decomposition error");
+        let ux = l.solve(p.transpose());
 
         Ok(())
     }
@@ -459,6 +513,39 @@ impl<T: Scalar> Display for Vector<T> {
         write!(f, "{:?}", self.data)
     }
 }
+impl<T: Scalar> Debug for Matrix<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\x1B[s")?;
+        let width = self
+            .data
+            .iter()
+            .map(|x| format!("{}", x).len())
+            .max()
+            .unwrap_or(0);
+        for r in 0..self.rows {
+            write!(f, "\x1B[u")?;
+            if r > 0 {
+                write!(f, "\x1B[{}B", r)?;
+            }
+            write!(f, "[")?;
+            for c in 0..self.cols {
+                let sep = match c {
+                    c if c != self.cols - 1 => ",",
+                    c if c == self.cols - 1 && r != self.rows - 1 => "]\n",
+                    _ => "]",
+                };
+                write!(
+                    f,
+                    "{:>width$}{}",
+                    &self.data[r * self.cols + c],
+                    sep,
+                    width = width
+                )?;
+            }
+        }
+        Ok(())
+    }
+}
 impl<T: Scalar> Display for Matrix<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "\x1B[s")?;
@@ -494,6 +581,7 @@ impl<T: Scalar> Display for Matrix<T> {
 }
 
 #[cfg(test)]
+#[rustfmt::skip]
 mod tests {
     use super::*;
 
@@ -1061,14 +1149,100 @@ mod tests {
         assert!(mat.determinant().is_err());
     }
     #[test]
-    fn ex12_inverse() {
-        assert_eq!(
-            Matrix::identity(2, 2),
-            Matrix {
-                data: vec![1., 0., 0., 1.],
+    fn ex12_invert() {
+        //TEST UTILS
+        {
+
+
+            // test identity
+            assert_eq!(
+                Matrix::identity(2, 2),
+                Matrix {
+                    data: vec![
+                        1., 0.,
+                        0., 1.,
+                    ],
+                    cols: 2,
+                    rows: 2,
+                }
+            );
+            assert_eq!(
+                Matrix::identity(3, 3),
+                Matrix {
+                    data: vec![
+                        1., 0., 0.,
+                        0., 1., 0.,
+                        0., 0., 1.,
+                    ],
+                    cols: 3,
+                    rows: 3,
+                }
+            );
+            // test augment matrix
+            let mut mat1 =  Matrix {
+                            data: vec![
+                                1., 0., 0.,
+                                0., 1., 0.,
+                                0., 0., 1.,
+                            ],
+                            cols: 3,
+                            rows: 3,
+                        };
+            let mat2 = Matrix {
+                data: vec![
+                    1., 0.,
+                    0., 1.,
+                    0., 0.,
+                ],
+                cols: 2,
+                rows: 3,
+            };
+            let wrongmat = Matrix {
+                data: vec![
+                    1., 0.,
+                    0., 1.,
+                ],
                 cols: 2,
                 rows: 2,
-            }
-        );
+            };
+            assert!(mat1.augment(wrongmat).is_err());
+    }
+        // TEST PLU decomposition
+        {
+            let m = Matrix::from(vec![
+                0., 0., 0., 0.,
+                0., 0., 0., 0.,
+                0., 0., 0., 0.,
+            ], 4,3);
+            assert!(m.plu().is_err());
+        }
+        {
+            let m = Matrix::from(vec![
+                0., 0., 0., 0.,
+                0., 0., 0., 0.,
+                0., 0., 0., 0.,
+                0., 0., 0., 0.,
+            ], 4,4);
+            let (p,l,u) = m.plu().expect("plu decomposition error");
+            dbg!(&p, &l, &u);
+            let mut res = p.mul_mat(&l).expect("mul error");
+            res = res.mul_mat(&u).expect("mul error");
+            assert_eq!(m, res);
+        }
+        {
+            let m = Matrix::from(vec![
+                2., 3., 6., 4.,
+                2., 3., 6., 4.,
+                2., 3., 6., 4.,
+                2., 3., 6., 4.,
+            ], 4,4);
+            let (p,l,u) = m.plu().expect("plu decomposition error");
+            dbg!(&p, &l, &u);
+            let mut res = p.mul_mat(&l).expect("mul error");
+            res = res.mul_mat(&u).expect("mul error");
+            assert_eq!(m, res);
+        }
+
+
     }
 }
