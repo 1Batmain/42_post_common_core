@@ -507,7 +507,6 @@ impl<T: Scalar> Tensor<T> for Matrix<T> {
         Ok(())
     }
 }
-
 impl<T: Scalar> Display for Vector<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.data)
