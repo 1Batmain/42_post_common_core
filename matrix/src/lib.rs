@@ -451,28 +451,28 @@ impl<T: Scalar> Matrix<T> {
         Ok((p, l, u))
     }
 
-    pub fn solve(&self, &result: Matrix<T>) -> Result<Matrix<T>, String> {
+    pub fn solve(&self, result: Matrix<T>) -> Result<Matrix<T>, String> {
         if self.cols != result.rows {
             return Err("Matrix dimensions does not match expected result".to_string());
         }
-        let mut solution = Matrix::from(vec![0.; self.rows * self.cols], self.cols, self.rows);
+        let mut solution =
+            Matrix::from(vec![T::zero(); self.rows * self.cols], self.cols, self.rows);
 
         for c in 0..solution.cols {
-            for r in 0..solution.rows {
-                
-            }
+            for r in 0..solution.rows {}
         }
         Ok(solution)
     }
 
-    pub fn inverse(&mut self) -> Result<(), String> {
+    pub fn inverse(&mut self) -> Result<Matrix<T>, String> {
         if self.rows != self.cols {
             return Err("Matrix must be squared to be inversed.".to_string());
         }
         let (p, l, u) = self.plu().expect("plu decomposition error");
-        let ux = l.solve(p.transpose());
+        println!("p: {:?}\nl: {:?}\nu: {:?}", p, l, u);
+        let ux = l.solve(p.transpose())?;
 
-        Ok(())
+        Ok(ux)
     }
 }
 
