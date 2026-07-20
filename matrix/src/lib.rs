@@ -455,11 +455,25 @@ impl<T: Scalar> Matrix<T> {
         if self.cols != result.rows {
             return Err("Matrix dimensions does not match expected result".to_string());
         }
-        let mut solution =
-            Matrix::from(vec![T::zero(); self.rows * self.cols], self.cols, self.rows);
+        // Build the augmented matrix [self | result] then reduce the left
+        // block to identity; the right block becomes X = self^-1 * result.
+        let res_cols = result.cols;
+        let mut work = self.clone();
+        work.augment(result)?;
+        work.reduced_row_echelon();
 
-        for c in 0..solution.cols {
-            for r in 0..solution.rows {}
+        // Solution has the same row count as self and as many columns as the
+        // right-hand side we just solved against.
+        let mut solution =
+            Matrix::from(vec![T::zero(); self.rows * res_cols], res_cols, self.rows);
+
+        for r in 0..solution.rows {
+            for c in 0..solution.cols {
+                // TODO(human): copy the reduced right block of `work` into
+                // `solution`. The right block starts at column `self.cols`
+                // inside `work` (whose width is now `work.cols`), and
+                // `solution` is `res_cols` wide.
+            }
         }
         Ok(solution)
     }
