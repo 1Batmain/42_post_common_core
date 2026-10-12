@@ -464,8 +464,7 @@ impl<T: Scalar> Matrix<T> {
 
         // Solution has the same row count as self and as many columns as the
         // right-hand side we just solved against.
-        let mut solution =
-            Matrix::from(vec![T::zero(); self.rows * res_cols], res_cols, self.rows);
+        let mut solution = Matrix::from(vec![T::zero(); self.rows * res_cols], res_cols, self.rows);
 
         for r in 0..solution.rows {
             for c in 0..solution.cols {
