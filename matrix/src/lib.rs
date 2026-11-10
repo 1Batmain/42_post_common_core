@@ -93,14 +93,13 @@ pub fn dot<T: Scalar>(a: &Vector<T>, b: &Vector<T>) -> Result<T, String> {
 }
 //ex05
 pub fn angle_cos<T: Scalar>(a: &Vector<T>, b: &Vector<T>) -> Result<T, String> {
-    let dot = dot(a, b)?;
-    let an = a.norm_2();
-    let bn = b.norm_2();
-    if let (Some(an), Some(bn)) = (an, bn) {
-        Ok(dot / (an * bn))
-    } else {
-        Err("Vectors are either empty or of size 0".into())
+    if a.norm_1() == Some(T::zero()) || b.norm_1() == Some(T::zero()) {
+        return Err("Vectors are either empty or of size 0".into());
     }
+    let dot = dot(a, b)?;
+    let an = a.norm_2().ok_or("bizard")?;
+    let bn = b.norm_2().ok_or("bizard")?;
+    Ok(dot / (an * bn))
 }
 //ex06
 pub fn cross_product<T: Scalar>(a: &Vector<T>, b: &Vector<T>) -> Result<Vector<T>, String> {
@@ -128,15 +127,15 @@ impl<T: Scalar> Vector<T> {
         if self.data.is_empty() {
             return None;
         }
-        let result = self.data.iter().copied().sum();
-        (result != T::zero()).then_some(result)
+        Some(self.data.iter().copied().map(|x| x.abs()).sum())
     }
     pub fn norm_2(&self) -> Option<T> {
         if self.data.is_empty() {
             return None;
         }
         let result = self.data.iter().map(|x| *x * *x).sum::<T>().sqrt();
-        (result != T::zero()).then_some(result)
+        //(result != T::zero()).then_some(result)
+        Some(result)
     }
     pub fn norm_3(&self) -> Option<T> {
         if self.data.is_empty() {
@@ -153,7 +152,8 @@ impl<T: Scalar> Vector<T> {
                 }
             })
             .unwrap();
-        (result != T::zero()).then_some(result)
+        //(result != T::zero()).then_some(result)
+        Some(result)
     }
 }
 impl<T: Scalar> Tensor<T> for Vector<T> {
@@ -305,6 +305,7 @@ impl<T: Scalar> Matrix<T> {
         Ok(())
     }
 
+    // row at idx.0 = idx.0 * idx.1 * factor
     fn add_row(&mut self, idx: (usize, usize), factor: T) -> Result<(), String> {
         if idx.0 >= self.rows || idx.1 >= self.rows {
             return Err(format!("indexes is out of range: {:?} for mat{self}", idx,).to_string());
@@ -322,29 +323,77 @@ impl<T: Scalar> Matrix<T> {
                 self.data[$r * self.cols + $c]
             };
         }
+        macro_rules! there_is_non_zero_bellow {
+            ($r: expr, $c: expr) => {{
+                let mut found = false;
+                for i in $r..self.rows {
+                    if at!(i, $c) != T::zero() {
+                        found = true;
+                        break;
+                    }
+                }
+                found
+            }};
+        }
         let mut r_start = 0;
         let mut swap_count = 0;
         for c in 0..self.cols {
-            let mut pivot: Option<usize> = None;
+            let mut pivot: Option<(usize, usize)> = None;
             for r in r_start..self.rows {
-                if at!(r, c) == T::zero() {
-                    if r <= self.rows - 2 && pivot.is_none() {
+                if at!(r, c) == T::zero() && there_is_non_zero_bellow!(r, c) {
+                    // Si on est pas sur la derniere ligne et quon a decele aucun pivot
+                    if r < self.rows - 1 && pivot.is_none_or(|(_, pc)| c > pc) {
                         self.swap_rows((r, r + 1)).expect("swap rows error");
                         swap_count += 1;
                     }
                     continue;
                 }
-                if let Some(pivot) = pivot {
-                    self.add_row((r, pivot), -at!(r, c) / at!(pivot, c))
+                if let Some(pivot) = pivot
+                    && pivot.1 == c
+                {
+                    self.add_row((r, pivot.0), -at!(r, c) / at!(pivot.0, c))
                         .expect("add row error");
                 } else {
-                    pivot = Some(r);
+                    pivot = Some((r, c));
                     r_start += 1;
                 }
             }
         }
         swap_count
     }
+    // pub fn row_echelon(&mut self) -> i32 {
+    //     macro_rules! at {
+    //         ($r: expr, $c: expr) => {
+    //             self.data[$r * self.cols + $c]
+    //         };
+    //     }
+    //     let mut r_start = 0;
+    //     let mut swap_count = 0;
+    //     for c in 0..self.cols {
+    //         let mut pivot: Option<usize>= None;
+    //         for r in r_start..self.rows {
+    //             if at!(r, c) == T::zero() {
+    //                 // Si on est pas sur la derniere ligne et quon a decele aucun pivot
+    //                 if r <= self.rows - 2 && pivot.is_none() {
+    //                     self.swap_rows((r, r + 1)).expect("swap rows error");
+    //                     swap_count += 1;
+    //                     if r > 0 {
+    //                         r -= 1;
+    //                     }
+    //                 }
+    //                 continue;
+    //             }
+    //             if let Some(pivot) = pivot {
+    //                 self.add_row((r, pivot), -at!(r, c) / at!(pivot, c))
+    //                     .expect("add row error");
+    //             } else {
+    //                 pivot = Some(r);
+    //                 r_start += 1;
+    //             }
+    //         }
+    //     }
+    //     swap_count
+    // }
     pub fn reduced_row_echelon(&mut self) -> i32 {
         macro_rules! at {
             ($r: expr, $c: expr) => {
@@ -379,6 +428,7 @@ impl<T: Scalar> Matrix<T> {
         }
         swap_count
     }
+
     pub fn determinant(&self) -> Result<f32, String> {
         if self.cols != self.rows {
             return Err("Ta pas capte, c pas carré".to_string());
@@ -852,9 +902,10 @@ mod tests {
         assert!(empty.norm_1().is_none());
         assert!(empty.norm_2().is_none());
         assert!(empty.norm_3().is_none());
-        assert!(zero.norm_1().is_none());
-        assert!(zero.norm_2().is_none());
-        assert!(zero.norm_3().is_none());
+        // subject: the zero vector has norms 0.0, not "no norm"
+        assert_eq!(zero.norm_1(), Some(0.0));
+        assert_eq!(zero.norm_2(), Some(0.0));
+        assert_eq!(zero.norm_3(), Some(0.0));
         assert_eq!(vx.norm_1(), Some(3.0));
         assert_eq!(vy.norm_1(), Some(3.0));
         assert_eq!(vz.norm_1(), Some(3.0));
@@ -872,6 +923,12 @@ mod tests {
         assert_eq!(v.norm_1(), Some(9.0));
         let fix_norm = Vector::from([80198051.0; 3]);
         assert_eq!(fix_norm.norm_2(), Some(138907099.0));
+
+        // norm_1 sums ABSOLUTE values (subject examples)
+        assert_eq!(Vector::from([1., 2., 3.]).norm_1(), Some(6.0));
+        assert_eq!(Vector::from([-1., -2.]).norm_1(), Some(3.0));
+        assert_eq!(Vector::from([-1., 1.]).norm_1(), Some(2.0));
+        assert_eq!(Vector::from([-1., -2.]).norm_3(), Some(2.0));
     }
     #[test]
     fn ex05_cos() {
@@ -1110,6 +1167,83 @@ mod tests {
         };
         m.reduced_row_echelon();
         assert_eq!(m, expected);
+
+        // Echelon property: each row's leading entry is strictly right of the
+        // previous one, and zero rows are at the bottom.
+        let is_echelon = |m: &Matrix<f32>| -> bool {
+            let mut prev_lead: Option<usize> = None;
+            let mut seen_zero_row = false;
+            for r in 0..m.rows {
+                let row = &m.data[r * m.cols..(r + 1) * m.cols];
+                match row.iter().position(|x| *x != 0.) {
+                    None => seen_zero_row = true,
+                    Some(_) if seen_zero_row => return false,
+                    Some(lead) => {
+                        if prev_lead.is_some_and(|p| lead <= p) {
+                            return false;
+                        }
+                        prev_lead = Some(lead);
+                    }
+                }
+            }
+            true
+        };
+
+        // PIVOT BELOW A ZERO - one swap is required
+        #[rustfmt::skip]
+        let mut m = Matrix::from(vec![
+            0. ,0., 1.,
+            0. ,1., 0.,
+            1. ,0., 0.,
+        ], 3, 3);
+        let swaps = m.row_echelon();
+
+        assert!(is_echelon(&m), "not in echlon form: {m:?}");
+        assert_eq!(swaps % 2, 1, "one row swap expected, got {swaps}");
+
+        // PERMUTATION MATRIX - row_echelon must reorder it into identity
+        #[rustfmt::skip]
+        let mut m = Matrix::from(vec![
+            0., 0., 1.,
+            1., 0., 0.,
+            0., 1., 0.,
+        ], 3, 3);
+        m.row_echelon();
+        assert!(is_echelon(&m), "not in echelon form: {m:?}");
+        assert_eq!(m, Matrix::identity(3, 3));
+
+        // reduced_row_echelon must also clear ABOVE each pivot
+        #[rustfmt::skip]
+        let mut m = Matrix::from(vec![
+            1., 2.,
+            3., 4.,
+        ], 2, 2);
+        m.reduced_row_echelon();
+        assert_eq!(m, Matrix::identity(2, 2));
+
+        // rank-deficient: zero row in the middle, needs a swap + above clearing
+        #[rustfmt::skip]
+        let mut m = Matrix::from(vec![
+            1., 2., 3.,
+            2., 4., 6.,
+            1., 1., 1.,
+        ], 3, 3);
+        #[rustfmt::skip]
+        let expected = Matrix::from(vec![
+            1., 0., -1.,
+            0., 1.,  2.,
+            0., 0.,  0.,
+        ], 3, 3);
+        m.reduced_row_echelon();
+        assert_eq!(m, expected);
+
+        // SINGLE ROW starting with a zero - must not underflow `rows - 2`
+        let mut m = Matrix::from(vec![0., 1.], 2, 1);
+        m.row_echelon();
+        assert_eq!(m, Matrix::from(vec![0., 1.], 2, 1));
+        let mut m = Matrix::from(vec![0., 4.], 2, 1);
+        m.reduced_row_echelon();
+        assert_eq!(m, Matrix::from(vec![0., 1.], 2, 1));
     }
 
     #[test]
@@ -1159,13 +1293,27 @@ mod tests {
             3,
         );
         assert!(mat.determinant().is_err());
+
+        // ROW SWAPS needed: one swap flips the sign
+        let mat = Matrix::from(vec![0., 1., 1., 0.], 2, 2);
+        assert_eq!(mat.determinant(), Ok(-1.0));
+        #[rustfmt::skip]
+        let mat = Matrix::from(vec![
+            0., 2., 0.,
+            1., 0., 0.,
+            0., 0., 3.,
+        ], 3, 3);
+        assert_eq!(mat.determinant(), Ok(-6.0));
+
+        // subject: determinant returns K - an f64 result must not go through f32
+        let mat = Matrix::from(vec![1e20_f64, 0., 0., 1e20], 2, 2);
+        let det = mat.determinant().expect("determinant error");
+        assert!(det.is_finite(), "1e20 * 1e20 overflowed: {det}");
     }
     #[test]
     fn ex12_invert() {
         //TEST UTILS
         {
-
-
             // test identity
             assert_eq!(
                 Matrix::identity(2, 2),
@@ -1255,6 +1403,73 @@ mod tests {
             assert_eq!(m, res);
         }
 
+        // identity on a NON-SQUARE shape: 3 cols, 2 rows
+        assert_eq!(
+            Matrix::<f32>::identity(3, 2),
+            Matrix::from(vec![1., 0., 0., 0., 1., 0.], 3, 2)
+        );
 
+        // PLU where row swaps are REQUIRED: A == P·L·U is not enough
+        // (it holds trivially when nothing is done), so also check the shapes.
+        let is_upper = |m: &Matrix<f32>| {
+            (0..m.rows).all(|r| (0..r).all(|c| m.data[r * m.cols + c] == 0.))
+        };
+        let is_unit_lower = |m: &Matrix<f32>| {
+            (0..m.rows).all(|r| {
+                m.data[r * m.cols + r] == 1.
+                    && (r + 1..m.cols).all(|c| m.data[r * m.cols + c] == 0.)
+            })
+        };
+        for m in [
+            Matrix::from(vec![0., 1., 1., 0.], 2, 2),
+            Matrix::from(vec![0., 2., 1., 1., 1., 1., 2., 2., 4.], 3, 3),
+        ] {
+            let (p, l, u) = m.plu().expect("plu decomposition error");
+            assert!(is_upper(&u), "U not upper triangular: {u:?}");
+            assert!(is_unit_lower(&l), "L not unit lower triangular: {l:?}");
+            let res = p.mul_mat(&l).and_then(|pl| pl.mul_mat(&u)).expect("mul error");
+            assert_eq!(m, res);
+        }
+
+        // SOLVE: A·X = B, needs a swap and clearing above the pivot
+        let a = Matrix::from(vec![0., 1., 1., 1.], 2, 2);
+        let b = Matrix::from(vec![1., 2.], 1, 2);
+        assert_eq!(a.solve(b), Ok(Matrix::from(vec![1., 1.], 1, 2)));
+        let a = Matrix::from(vec![1., 2., 3., 4.], 2, 2);
+        assert_eq!(
+            a.solve(Matrix::identity(2, 2)),
+            Ok(Matrix::from(vec![-2., 1., 1.5, -0.5], 2, 2))
+        );
+
+        // INVERSE - subject examples (results may be approximate)
+        let approx = |a: &Matrix<f32>, b: &Matrix<f32>| {
+            a.rows == b.rows
+                && a.cols == b.cols
+                && a.data.iter().zip(&b.data).all(|(x, y)| (x - y).abs() < 1e-5)
+        };
+        #[rustfmt::skip]
+        let cases = [
+            (vec![1., 0., 0., 0., 1., 0., 0., 0., 1.],
+             vec![1., 0., 0., 0., 1., 0., 0., 0., 1.]),
+            (vec![2., 0., 0., 0., 2., 0., 0., 0., 2.],
+             vec![0.5, 0., 0., 0., 0.5, 0., 0., 0., 0.5]),
+            (vec![8., 5., -2., 4., 7., 20., 7., 6., 1.],
+             vec![0.649425287, 0.097701149, -0.655172414,
+                  -0.781609195, -0.126436782, 0.965517241,
+                  0.143678161, 0.074712644, -0.206896552]),
+        ];
+        for (input, expected) in cases {
+            let mut m = Matrix::from(input, 3, 3);
+            let expected = Matrix::from(expected, 3, 3);
+            let inv = m.inverse().expect("inverse error");
+            assert!(approx(&inv, &expected), "inverse wrong:\n{inv:?}\nexpected:\n{expected:?}");
+        }
+        // inverse needs a row swap
+        let mut m = Matrix::from(vec![0., 1., 1., 0.], 2, 2);
+        assert_eq!(m.inverse(), Ok(Matrix::from(vec![0., 1., 1., 0.], 2, 2)));
+
+        // subject: a singular matrix must return an error
+        let mut m = Matrix::from(vec![1., 2., 2., 4.], 2, 2);
+        assert!(m.inverse().is_err(), "singular matrix was inverted");
     }
 }

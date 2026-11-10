@@ -7,12 +7,13 @@ fn main() -> Result<(), String> {
     #[rustfmt::skip]
     let mut mat = Matrix::from([
             1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0
+            1.0, 2.0, 0.0, 0.0,
+            1.0, 1.0, 1.0, 0.0,
+            1.0, 1.0, 0.0, 1.0
 
         ],4,4,);
-    println!("original matrix:\n{}", mat.inverse()?);
+    mat.inverse()?;
+    println!("original matrix:\n{}", mat);
 
     Ok(())
 }
