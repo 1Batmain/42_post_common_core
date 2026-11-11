@@ -325,10 +325,10 @@ impl<T: Scalar> Matrix<T> {
         }
         macro_rules! there_is_non_zero_bellow {
             ($r: expr, $c: expr) => {{
-                let mut found = false;
-                for i in $r..self.rows {
+                let mut found = None;
+                for i in { $r + 1 }..self.rows {
                     if at!(i, $c) != T::zero() {
-                        found = true;
+                        found = Some(i);
                         break;
                     }
                 }
@@ -338,30 +338,78 @@ impl<T: Scalar> Matrix<T> {
         let mut r_start = 0;
         let mut swap_count = 0;
         for c in 0..self.cols {
-            let mut pivot: Option<(usize, usize)> = None;
+            let mut pivot: Option<usize> = None;
             for r in r_start..self.rows {
-                if at!(r, c) == T::zero() && there_is_non_zero_bellow!(r, c) {
-                    // Si on est pas sur la derniere ligne et quon a decele aucun pivot
-                    if r < self.rows - 1 && pivot.is_none_or(|(_, pc)| c > pc) {
-                        self.swap_rows((r, r + 1)).expect("swap rows error");
+                if let Some(rt) = there_is_non_zero_bellow!(r, c) {
+                    if at!(r, c) == T::zero() && pivot.is_none() {
+                        self.swap_rows((r, rt)).expect("swap rows error");
                         swap_count += 1;
                     }
-                    continue;
                 }
                 if let Some(pivot) = pivot
-                    && pivot.1 == c
+                    && at!(r, c) != T::zero()
                 {
-                    self.add_row((r, pivot.0), -at!(r, c) / at!(pivot.0, c))
+                    self.add_row((r, pivot), -at!(r, c) / at!(pivot, c))
                         .expect("add row error");
-                } else {
-                    pivot = Some((r, c));
+                } else if at!(r, c) != T::zero() {
+                    pivot = Some(r);
                     r_start += 1;
                 }
             }
         }
         swap_count
     }
-    // pub fn row_echelon(&mut self) -> i32 {
+    pub fn reduced_row_echelon(&mut self) -> i32 {
+        macro_rules! at {
+            ($r: expr, $c: expr) => {
+                self.data[$r * self.cols + $c]
+            };
+        }
+        macro_rules! there_is_non_zero_bellow {
+            ($r: expr, $c: expr) => {{
+                let mut found = None;
+                for i in { $r + 1 }..self.rows {
+                    if at!(i, $c) != T::zero() {
+                        found = Some(i);
+                        break;
+                    }
+                }
+                found
+            }};
+        }
+        let mut r_start = 0;
+        let mut swap_count = 0;
+        for c in 0..self.cols {
+            let mut pivot: Option<usize> = None;
+            for r in r_start..self.rows {
+                if let Some(rt) = there_is_non_zero_bellow!(r, c) {
+                    if at!(r, c) == T::zero() && pivot.is_none() {
+                        self.scale_row(rt, T::one() / at!(rt, c))
+                            .expect("scale row error");
+                        self.swap_rows((r, rt)).expect("swap rows error");
+                        swap_count += 1;
+                    }
+                }
+                if let Some(pivot) = pivot
+                    && at!(r, c) != T::zero()
+                {
+                    self.add_row((r, pivot), -at!(r, c) / at!(pivot, c))
+                        .expect("add row error");
+                } else if at!(r, c) != T::zero() {
+                    pivot = Some(r);
+                    r_start += 1;
+                    self.scale_row(r, T::one() / at!(r, c))
+                        .expect("scale row error");
+                    for rev_r in (0..r).rev() {
+                        self.add_row((rev_r, r), -at!(rev_r, c))
+                            .expect("add row error");
+                    }
+                }
+            }
+        }
+        swap_count
+    }
+    // pub fn reduced_row_echelon(&mut self) -> i32 {
     //     macro_rules! at {
     //         ($r: expr, $c: expr) => {
     //             self.data[$r * self.cols + $c]
@@ -370,23 +418,24 @@ impl<T: Scalar> Matrix<T> {
     //     let mut r_start = 0;
     //     let mut swap_count = 0;
     //     for c in 0..self.cols {
-    //         let mut pivot: Option<usize>= None;
+    //         let mut pivot: Option<usize> = None;
     //         for r in r_start..self.rows {
     //             if at!(r, c) == T::zero() {
-    //                 // Si on est pas sur la derniere ligne et quon a decele aucun pivot
     //                 if r <= self.rows - 2 && pivot.is_none() {
+    //                     if at!(r + 1, c) != T::zero() {
+    //                         self.scale_row(r + 1, T::one() / at!(r + 1, c))
+    //                             .expect("scale row error");
+    //                     }
     //                     self.swap_rows((r, r + 1)).expect("swap rows error");
     //                     swap_count += 1;
-    //                     if r > 0 {
-    //                         r -= 1;
-    //                     }
     //                 }
     //                 continue;
     //             }
     //             if let Some(pivot) = pivot {
-    //                 self.add_row((r, pivot), -at!(r, c) / at!(pivot, c))
-    //                     .expect("add row error");
+    //                 self.add_row((r, pivot), -at!(r, c)).expect("add row error");
     //             } else {
+    //                 self.scale_row(r, T::one() / at!(r, c))
+    //                     .expect("scale row error");
     //                 pivot = Some(r);
     //                 r_start += 1;
     //             }
@@ -394,40 +443,6 @@ impl<T: Scalar> Matrix<T> {
     //     }
     //     swap_count
     // }
-    pub fn reduced_row_echelon(&mut self) -> i32 {
-        macro_rules! at {
-            ($r: expr, $c: expr) => {
-                self.data[$r * self.cols + $c]
-            };
-        }
-        let mut r_start = 0;
-        let mut swap_count = 0;
-        for c in 0..self.cols {
-            let mut pivot: Option<usize> = None;
-            for r in r_start..self.rows {
-                if at!(r, c) == T::zero() {
-                    if r <= self.rows - 2 && pivot.is_none() {
-                        if at!(r + 1, c) != T::zero() {
-                            self.scale_row(r + 1, T::one() / at!(r + 1, c))
-                                .expect("scale row error");
-                        }
-                        self.swap_rows((r, r + 1)).expect("swap rows error");
-                        swap_count += 1;
-                    }
-                    continue;
-                }
-                if let Some(pivot) = pivot {
-                    self.add_row((r, pivot), -at!(r, c)).expect("add row error");
-                } else {
-                    self.scale_row(r, T::one() / at!(r, c))
-                        .expect("scale row error");
-                    pivot = Some(r);
-                    r_start += 1;
-                }
-            }
-        }
-        swap_count
-    }
 
     pub fn determinant(&self) -> Result<f32, String> {
         if self.cols != self.rows {
@@ -1099,7 +1114,10 @@ mod tests {
         // SAME BUT TRANSLATE BY 1 COLUMN - row_echelon form
         let mut m = Matrix {
             data: vec![
-                0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1.,
+                0., 0., 0., 0.,
+                0., 1., 0., 0.,
+                0., 0., 1., 0.,
+                0., 0., 0., 1.,
             ],
             cols: 4,
             rows: 4,
@@ -1135,7 +1153,10 @@ mod tests {
         // empty column - row_echelon form (keeps pivot as 5)
         let mut m = Matrix {
             data: vec![
-                0., 0., 0., 0., 0., 5., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
+                0., 0., 0., 0.,
+                0., 5., 0., 0.,
+                0., 0., 0., 0.,
+                0., 0., 0., 1.,
             ],
             cols: 4,
             rows: 4,
